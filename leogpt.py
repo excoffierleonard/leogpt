@@ -148,10 +148,6 @@ async def on_message(message):
         if message.author == bot.user:
             return
 
-        # Check for @everyone or @here mentions and ignore such messages
-        if "@everyone" in message.content or "@here" in message.content:
-            return
-
         identifier = message.channel.id 
         thread_ids[identifier]["last_used"] = datetime.now()
 
