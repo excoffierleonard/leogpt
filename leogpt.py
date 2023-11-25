@@ -153,7 +153,8 @@ async def on_message(message):
 
         cleanup_old_threads()
 
-        if bot.user.mentioned_in(message):
+        bot_mention = f'<@{bot.user.id}>'
+        if message.content.startswith(bot_mention):
             clean_message = await process_message(message)
             logging.info(f"Received message from {message.author.name}: {clean_message}")
 
