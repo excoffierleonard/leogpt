@@ -53,10 +53,6 @@ async def send_in_chunks(channel, message):
         logging.error(f"Error sending message in chunks: {e}")
         raise
 
-# Function to process incoming messages
-async def process_message(message):
-    return discord.utils.remove_markdown(message.clean_content)
-
 # Function to send message to OpenAI
 async def send_message_to_openai(clean_message, thread_id):
     try:
@@ -155,7 +151,7 @@ async def on_message(message):
 
         bot_mention = f'<@{bot.user.id}>'
         if message.content.startswith(bot_mention):
-            clean_message = await process_message(message)
+            clean_message = discord.utils.remove_markdown(message.clean_content)
             logging.info(f"Received message from {message.author.name}: {clean_message}")
 
             async with message.channel.typing():
