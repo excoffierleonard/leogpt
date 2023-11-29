@@ -9,7 +9,6 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 # Configuration and Constants
-OPENAI_API_KEY = config.openai_api_key 
 DISCORD_BOT_TOKEN = config.discord_bot_token  
 ASSISTANT_ID = config.assistant_id
 MESSAGE_CHUNK_SIZE = 2000
