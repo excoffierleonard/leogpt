@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 # Configuration
 openai_api_key = os.getenv('OPENAI_API_KEY', config.openai_api_key)
 discord_bot_token = os.getenv('DISCORD_BOT_TOKEN', config.discord_bot_token)
-assistant_id = config.assistant_id
+assistant_id = os.getenv("ASSISTANT_ID", config.assistant_id) 
 
 # Setting up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
