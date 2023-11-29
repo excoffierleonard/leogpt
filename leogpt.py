@@ -5,20 +5,21 @@ import logging
 import asyncio
 import time
 import config
-import os
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-# Configuration
-openai_api_key = os.getenv('OPENAI_API_KEY', config.openai_api_key)
-discord_bot_token = os.getenv('DISCORD_BOT_TOKEN', config.discord_bot_token)
-assistant_id = os.getenv("ASSISTANT_ID", config.assistant_id) 
+# Configuration and Constants
+OPENAI_API_KEY = config.openai_api_key 
+DISCORD_BOT_TOKEN = config.discord_bot_token  
+ASSISTANT_ID = config.assistant_id
+MESSAGE_CHUNK_SIZE = 2000
+THREAD_INACTIVITY_TIMEOUT_HOURS = 1
 
 # Setting up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # OpenAI Client Setup
-openai_client = AsyncOpenAI(api_key=openai_api_key)
+openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 # Discord Bot Setup
 intents = discord.Intents.default()
@@ -42,9 +43,8 @@ async def create_new_thread(identifier):
 async def send_in_chunks(channel, message):
     logging.info("Sending message in chunks")
     try:
-        chunk_size = 2000
         while message:
-            split_index = (message.rfind(' ', 0, chunk_size) + 1) if len(message) > chunk_size else len(message)
+            split_index = (message.rfind(' ', 0, MESSAGE_CHUNK_SIZE) + 1) if len(message) > MESSAGE_CHUNK_SIZE else len(message)
             chunk = message[:split_index].strip()
             await channel.send(chunk)
             message = message[split_index:]
@@ -116,7 +116,7 @@ async def interact_with_openai(clean_message, identifier):
 
         run = await openai_client.beta.threads.runs.create(
             thread_id=thread_id,
-            assistant_id=assistant_id
+            assistant_id=ASSISTANT_ID
         )
 
         await check_openai_response(thread_id, run.id)
@@ -130,7 +130,7 @@ async def interact_with_openai(clean_message, identifier):
 def cleanup_old_threads():
     now = datetime.now()
     for key, value in list(thread_ids.items()):
-        if now - value["last_used"] > timedelta(hours=1):
+        if now - value["last_used"] > timedelta(hours=THREAD_INACTIVITY_TIMEOUT_HOURS):
             del thread_ids[key]
 
 # Bot event: on_ready
@@ -167,4 +167,4 @@ async def on_message(message):
         logging.error(f"Error in on_message for {message.content}: {e}")
 
 # Running the bot
-bot.run(discord_bot_token)
+bot.run(DISCORD_BOT_TOKEN)
