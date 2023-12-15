@@ -12,8 +12,8 @@ from datetime import datetime, timedelta
 OPENAI_API_KEY = config.openai_api_key 
 DISCORD_BOT_TOKEN = config.discord_bot_token  
 ASSISTANT_ID = config.assistant_id
-MESSAGE_CHUNK_SIZE = 2000
-THREAD_INACTIVITY_TIMEOUT_HOURS = 1
+MESSAGE_CHUNK_SIZE = config.message_chunk_size
+THREAD_INACTIVITY_TIMEOUT_HOURS = config.thread_inactivity_timeout_hours
 
 # Setting up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
