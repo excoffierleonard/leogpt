@@ -1,5 +1,2 @@
-#wher are stored token and api keys
-config.py
-
-#Python cache, unique to each machine when program launched
-__pycache__
+#Where is stored the config file and pycache
+/config/

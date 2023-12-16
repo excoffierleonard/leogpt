@@ -4,7 +4,7 @@ from openai import AsyncOpenAI
 import logging
 import asyncio
 import time
-import config
+from config import config
 from collections import defaultdict
 from datetime import datetime, timedelta
 
