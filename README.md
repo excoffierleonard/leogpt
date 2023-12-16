@@ -1,4 +1,4 @@
-Create a config.py file in a subdirectory of the root of leogpt.py and configure the following:
+Create a config.py file in a /config/ subdirectory of the root of leogpt.py and configure the following:
 
 openai_api_key = 'YOUR_OPENAI_API_KEY'
 discord_bot_token = 'YOUR_DISCORD_BOT_TOKEN'
