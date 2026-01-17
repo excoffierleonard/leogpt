@@ -5,6 +5,8 @@ edition = "2024"
 
 [dependencies]
 dotenvy = "0.15.7"
+env_logger = "0.11.8"
+log = "0.4.29"
 poise = "0.6.1"
 thiserror = "2.0.17"
 tokio = { version = "1.49.0", features = ["full"] }
