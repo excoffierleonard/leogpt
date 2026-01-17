@@ -1,0 +1,8 @@
+services:
+  app:
+    image: ghcr.io/excoffierleonard/leogpt:latest
+    restart: unless-stopped
+    build:
+      context: .
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
