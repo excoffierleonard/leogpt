@@ -4,6 +4,7 @@ pub mod openrouter;
 
 use std::error::Error as StdError;
 
+use chrono::Utc;
 use config::Config;
 use error::Result;
 use log::{debug, info};
@@ -100,6 +101,37 @@ async fn build_conversation_history(
     history
 }
 
+/// Builds dynamic context information for the system prompt
+fn build_dynamic_context(message: &SerenityMessage) -> String {
+    let timestamp = Utc::now().format("%Y-%m-%d %H:%M:%S UTC");
+    let user = &message.author;
+
+    let mut context = format!("Current datetime: {}", timestamp);
+
+    // User identification
+    let username = user.global_name.as_ref().unwrap_or(&user.name);
+    context.push_str(&format!("\nUser: {}", username));
+
+    // Add guild-specific info if available
+    if let Some(ref member) = user.member {
+        if let Some(ref nick) = member.nick {
+            context.push_str(&format!(" (Server nick: {})", nick));
+        }
+        if let Some(joined_at) = member.joined_at {
+            let join_date = joined_at.format("%Y-%m-%d");
+            context.push_str(&format!(", joined {}", join_date));
+        }
+    }
+
+    // Location context
+    if let Some(guild_id) = message.guild_id {
+        context.push_str(&format!("\nServer ID: {}", guild_id));
+    }
+    context.push_str(&format!("\nChannel ID: {}", message.channel_id));
+
+    context
+}
+
 async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventResult {
     if let FullEvent::Message { new_message } = event
         && new_message.mentions_user_id(ctx.cache.current_user().id)
@@ -133,9 +165,12 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
             conversation_history.len()
         );
 
+        // Build dynamic context for the system prompt
+        let dynamic_context = build_dynamic_context(new_message);
+
         match data
             .openrouter_client
-            .chat_with_history(conversation_history)
+            .chat_with_history(conversation_history, Some(dynamic_context))
             .await
         {
             Ok(reply_content) => {

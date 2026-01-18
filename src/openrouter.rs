@@ -44,11 +44,22 @@ impl OpenRouterClient {
         }
     }
 
-    pub async fn chat_with_history(&self, mut messages: Vec<Message>) -> Result<String> {
+    pub async fn chat_with_history(
+        &self,
+        mut messages: Vec<Message>,
+        dynamic_context: Option<String>,
+    ) -> Result<String> {
         debug!(
             "Sending request to OpenRouter API with {} messages",
             messages.len()
         );
+
+        // Build the full system prompt with dynamic context
+        let full_system_prompt = if let Some(context) = dynamic_context {
+            format!("{}\n\n{}", context, self.system_prompt)
+        } else {
+            self.system_prompt.clone()
+        };
 
         // Ensure system prompt is at the beginning
         if messages.is_empty() || messages[0].role != "system" {
@@ -56,7 +67,7 @@ impl OpenRouterClient {
                 0,
                 Message {
                     role: "system".to_string(),
-                    content: self.system_prompt.clone(),
+                    content: full_system_prompt,
                 },
             );
         }
