@@ -96,22 +96,26 @@ async fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str
         for attachment in &discord_msg.attachments {
             if let Some(content_type) = &attachment.content_type {
                 if content_type.starts_with("image/") {
+                    debug!("Adding image attachment: {}", attachment.filename);
                     parts.push(ContentPart::ImageUrl {
                         image_url: ImageUrl {
                             url: attachment.url.clone(),
                         },
                     });
                 } else if content_type.starts_with("video/") {
+                    debug!("Adding video attachment: {}", attachment.filename);
                     parts.push(ContentPart::VideoUrl {
                         video_url: VideoUrl {
                             url: attachment.url.clone(),
                         },
                     });
                 } else if content_type.starts_with("audio/") {
+                    debug!("Fetching audio attachment: {}", attachment.filename);
                     // Fetch audio data and convert to base64
                     if let Ok(response) = reqwest::get(&attachment.url).await
                         && let Ok(audio_bytes) = response.bytes().await
                     {
+                        debug!("Adding audio attachment ({} bytes)", audio_bytes.len());
                         let audio_base64 =
                             base64::engine::general_purpose::STANDARD.encode(&audio_bytes);
                         let format = content_type
@@ -125,8 +129,11 @@ async fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str
                                 format,
                             },
                         });
+                    } else {
+                        log::warn!("Failed to fetch audio attachment: {}", attachment.filename);
                     }
                 } else if content_type == "application/pdf" {
+                    debug!("Adding PDF attachment: {}", attachment.filename);
                     parts.push(ContentPart::File {
                         file: File {
                             filename: attachment.filename.clone(),
