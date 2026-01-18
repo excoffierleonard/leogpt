@@ -7,10 +7,12 @@ use std::error::Error as StdError;
 use config::Config;
 use error::Result;
 use log::{debug, info};
-use openrouter::OpenRouterClient;
+use openrouter::{Message, OpenRouterClient};
 use poise::{
     Framework, FrameworkOptions, builtins,
-    serenity_prelude::{ClientBuilder, Context, FullEvent, GatewayIntents},
+    serenity_prelude::{
+        ClientBuilder, Context, FullEvent, GatewayIntents, Message as SerenityMessage, UserId,
+    },
 };
 
 type EventResult = std::result::Result<(), Box<dyn StdError + Send + Sync>>;
@@ -61,6 +63,43 @@ pub async fn run() -> Result<()> {
     Ok(())
 }
 
+/// Builds conversation history by walking up the Discord reply chain
+async fn build_conversation_history(
+    ctx: &Context,
+    message: &SerenityMessage,
+    bot_user_id: UserId,
+) -> Vec<Message> {
+    let mut history = Vec::new();
+    let mut current_message = message.clone();
+
+    // Walk up the reply chain
+    while let Some(ref_msg) = &current_message.referenced_message {
+        // Add the referenced message to history (we'll reverse later)
+        let role = if ref_msg.author.id == bot_user_id {
+            "assistant"
+        } else {
+            "user"
+        };
+
+        history.push(Message {
+            role: role.to_string(),
+            content: ref_msg.content.clone(),
+        });
+
+        // Try to fetch the full message to continue the chain
+        match ctx.http.get_message(ref_msg.channel_id, ref_msg.id).await {
+            Ok(msg) => {
+                current_message = msg;
+            }
+            Err(_) => break, // Can't fetch more, stop here
+        }
+    }
+
+    // Reverse to get chronological order
+    history.reverse();
+    history
+}
+
 async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventResult {
     if let FullEvent::Message { new_message } = event
         && new_message.mentions_user_id(ctx.cache.current_user().id)
@@ -77,11 +116,32 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
             debug!("Failed to broadcast typing indicator: {}", e);
         }
 
-        let user_message = new_message.content.clone();
+        let bot_user_id = ctx.cache.current_user().id;
 
-        match data.openrouter_client.chat(&user_message).await {
+        // Build conversation history from reply chain
+        let mut conversation_history =
+            build_conversation_history(ctx, new_message, bot_user_id).await;
+
+        // Add current user message
+        conversation_history.push(Message {
+            role: "user".to_string(),
+            content: new_message.content.clone(),
+        });
+
+        debug!(
+            "Conversation history has {} messages",
+            conversation_history.len()
+        );
+
+        match data
+            .openrouter_client
+            .chat_with_history(conversation_history)
+            .await
+        {
             Ok(reply_content) => {
+                // Send reply
                 new_message.reply(&ctx.http, &reply_content).await?;
+
                 info!(
                     "Replied to {} in channel {}: {}",
                     new_message.author.tag(),

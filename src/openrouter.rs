@@ -44,21 +44,26 @@ impl OpenRouterClient {
         }
     }
 
-    pub async fn chat(&self, user_message: &str) -> Result<String> {
-        debug!("Sending request to OpenRouter API");
+    pub async fn chat_with_history(&self, mut messages: Vec<Message>) -> Result<String> {
+        debug!(
+            "Sending request to OpenRouter API with {} messages",
+            messages.len()
+        );
 
-        let request = OpenRouterRequest {
-            model: self.model.clone(),
-            messages: vec![
+        // Ensure system prompt is at the beginning
+        if messages.is_empty() || messages[0].role != "system" {
+            messages.insert(
+                0,
                 Message {
                     role: "system".to_string(),
                     content: self.system_prompt.clone(),
                 },
-                Message {
-                    role: "user".to_string(),
-                    content: user_message.to_string(),
-                },
-            ],
+            );
+        }
+
+        let request = OpenRouterRequest {
+            model: self.model.clone(),
+            messages,
         };
 
         let response = self
