@@ -71,6 +71,11 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
             new_message.content
         );
 
+        // Show typing indicator while processing
+        if let Err(e) = new_message.channel_id.broadcast_typing(&ctx.http).await {
+            debug!("Failed to broadcast typing indicator: {}", e);
+        }
+
         let user_message = new_message.content.clone();
 
         match data.openrouter_client.chat(&user_message).await {
