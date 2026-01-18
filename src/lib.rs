@@ -8,7 +8,7 @@ use chrono::Utc;
 use config::Config;
 use error::Result;
 use log::{debug, info};
-use openrouter::{Message, OpenRouterClient};
+use openrouter::{ContentPart, ImageUrl, Message, MessageContent, OpenRouterClient};
 use poise::{
     Framework, FrameworkOptions, builtins,
     serenity_prelude::{
@@ -64,6 +64,53 @@ pub async fn run() -> Result<()> {
     Ok(())
 }
 
+/// Converts a Discord message into an OpenRouter Message, including any image attachments
+fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str) -> Message {
+    let has_images = !discord_msg.attachments.is_empty()
+        && discord_msg.attachments.iter().any(|a| {
+            a.content_type
+                .as_ref()
+                .map(|ct| ct.starts_with("image/"))
+                .unwrap_or(false)
+        });
+
+    let content = if has_images {
+        let mut parts = Vec::new();
+
+        // Add text first (OpenRouter recommends text before images)
+        if !discord_msg.content.is_empty() {
+            parts.push(ContentPart::Text {
+                text: discord_msg.content.clone(),
+            });
+        }
+
+        // Add image attachments
+        for attachment in &discord_msg.attachments {
+            if attachment
+                .content_type
+                .as_ref()
+                .map(|ct| ct.starts_with("image/"))
+                .unwrap_or(false)
+            {
+                parts.push(ContentPart::ImageUrl {
+                    image_url: ImageUrl {
+                        url: attachment.url.clone(),
+                    },
+                });
+            }
+        }
+
+        MessageContent::MultiPart(parts)
+    } else {
+        MessageContent::Text(discord_msg.content.clone())
+    };
+
+    Message {
+        role: role.to_string(),
+        content,
+    }
+}
+
 /// Builds conversation history by walking up the Discord reply chain
 async fn build_conversation_history(
     ctx: &Context,
@@ -82,10 +129,7 @@ async fn build_conversation_history(
             "user"
         };
 
-        history.push(Message {
-            role: role.to_string(),
-            content: ref_msg.content.clone(),
-        });
+        history.push(message_to_openrouter_message(ref_msg, role));
 
         // Try to fetch the full message to continue the chain
         match ctx.http.get_message(ref_msg.channel_id, ref_msg.id).await {
@@ -155,10 +199,7 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
             build_conversation_history(ctx, new_message, bot_user_id).await;
 
         // Add current user message
-        conversation_history.push(Message {
-            role: "user".to_string(),
-            content: new_message.content.clone(),
-        });
+        conversation_history.push(message_to_openrouter_message(new_message, "user"));
 
         debug!(
             "Conversation history has {} messages",

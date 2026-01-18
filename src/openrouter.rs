@@ -18,9 +18,28 @@ struct OpenRouterRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MessageContent {
+    Text(String),
+    MultiPart(Vec<ContentPart>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ContentPart {
+    Text { text: String },
+    ImageUrl { image_url: ImageUrl },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageUrl {
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub role: String,
-    pub content: String,
+    pub content: MessageContent,
 }
 
 #[derive(Debug, Deserialize)]
@@ -73,7 +92,7 @@ impl OpenRouterClient {
                 0,
                 Message {
                     role: "system".to_string(),
-                    content: full_system_prompt,
+                    content: MessageContent::Text(full_system_prompt),
                 },
             );
         }
@@ -104,11 +123,28 @@ impl OpenRouterClient {
 
         let api_response: OpenRouterResponse = response.json().await?;
 
-        let reply = api_response
+        let message = api_response
             .choices
             .first()
-            .map(|choice| choice.message.content.clone())
-            .ok_or_else(|| BotError::OpenRouterResponse("No choices in response".to_string()))?;
+            .ok_or_else(|| BotError::OpenRouterResponse("No choices in response".to_string()))?
+            .message
+            .clone();
+
+        // Extract text from the response (assistant responses are always text)
+        let reply = match message.content {
+            MessageContent::Text(text) => text,
+            MessageContent::MultiPart(parts) => {
+                // Concatenate all text parts (shouldn't happen for assistant responses, but handle it)
+                parts
+                    .iter()
+                    .filter_map(|part| match part {
+                        ContentPart::Text { text } => Some(text.as_str()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            }
+        };
 
         debug!("Received response from OpenRouter API");
         Ok(reply)
