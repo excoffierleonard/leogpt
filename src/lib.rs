@@ -24,7 +24,10 @@ pub async fn run() -> Result<()> {
     let config = Config::from_env()?;
 
     debug!("Initializing OpenRouter client");
-    let openrouter_client = OpenRouterClient::new(config.openrouter_api_key.clone(), config.system_prompt.clone());
+    let openrouter_client = OpenRouterClient::new(
+        config.openrouter_api_key.clone(),
+        config.system_prompt.clone(),
+    );
 
     debug!("Setting up gateway intents");
     let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;

@@ -50,14 +50,14 @@ impl OpenRouterClient {
         let request = OpenRouterRequest {
             model: self.model.clone(),
             messages: vec![
-            Message {
-                role: "system".to_string(),
-                content: self.system_prompt.clone(),
-            },
-            Message {
-                role: "user".to_string(),
-                content: user_message.to_string(),
-            },
+                Message {
+                    role: "system".to_string(),
+                    content: self.system_prompt.clone(),
+                },
+                Message {
+                    role: "user".to_string(),
+                    content: user_message.to_string(),
+                },
             ],
         };
 
