@@ -8,7 +8,9 @@ use chrono::Utc;
 use config::Config;
 use error::Result;
 use log::{debug, info};
-use openrouter::{ContentPart, File, ImageUrl, Message, MessageContent, OpenRouterClient};
+use openrouter::{
+    ContentPart, File, ImageUrl, Message, MessageContent, OpenRouterClient, VideoUrl,
+};
 use poise::{
     Framework, FrameworkOptions, builtins,
     serenity_prelude::{
@@ -70,7 +72,9 @@ fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str) -> M
         && discord_msg.attachments.iter().any(|a| {
             a.content_type
                 .as_ref()
-                .map(|ct| ct.starts_with("image/") || ct == "application/pdf")
+                .map(|ct| {
+                    ct.starts_with("image/") || ct.starts_with("video/") || ct == "application/pdf"
+                })
                 .unwrap_or(false)
         });
 
@@ -90,6 +94,12 @@ fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str) -> M
                 if content_type.starts_with("image/") {
                     parts.push(ContentPart::ImageUrl {
                         image_url: ImageUrl {
+                            url: attachment.url.clone(),
+                        },
+                    });
+                } else if content_type.starts_with("video/") {
+                    parts.push(ContentPart::VideoUrl {
+                        video_url: VideoUrl {
                             url: attachment.url.clone(),
                         },
                     });

@@ -29,11 +29,17 @@ pub enum MessageContent {
 pub enum ContentPart {
     Text { text: String },
     ImageUrl { image_url: ImageUrl },
+    VideoUrl { video_url: VideoUrl },
     File { file: File },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageUrl {
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VideoUrl {
     pub url: String,
 }
 
