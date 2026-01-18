@@ -31,6 +31,7 @@ pub enum ContentPart {
     ImageUrl { image_url: ImageUrl },
     VideoUrl { video_url: VideoUrl },
     File { file: File },
+    InputAudio { input_audio: AudioData },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +48,12 @@ pub struct VideoUrl {
 pub struct File {
     pub filename: String,
     pub file_data: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AudioData {
+    pub data: String,
+    pub format: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

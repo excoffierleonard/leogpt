@@ -4,12 +4,13 @@ pub mod openrouter;
 
 use std::error::Error as StdError;
 
+use base64::Engine;
 use chrono::Utc;
 use config::Config;
 use error::Result;
 use log::{debug, info};
 use openrouter::{
-    ContentPart, File, ImageUrl, Message, MessageContent, OpenRouterClient, VideoUrl,
+    AudioData, ContentPart, File, ImageUrl, Message, MessageContent, OpenRouterClient, VideoUrl,
 };
 use poise::{
     Framework, FrameworkOptions, builtins,
@@ -67,13 +68,16 @@ pub async fn run() -> Result<()> {
 }
 
 /// Converts a Discord message into an OpenRouter Message, including any media attachments
-fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str) -> Message {
+async fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str) -> Message {
     let has_media = !discord_msg.attachments.is_empty()
         && discord_msg.attachments.iter().any(|a| {
             a.content_type
                 .as_ref()
                 .map(|ct| {
-                    ct.starts_with("image/") || ct.starts_with("video/") || ct == "application/pdf"
+                    ct.starts_with("image/")
+                        || ct.starts_with("video/")
+                        || ct.starts_with("audio/")
+                        || ct == "application/pdf"
                 })
                 .unwrap_or(false)
         });
@@ -103,6 +107,25 @@ fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str) -> M
                             url: attachment.url.clone(),
                         },
                     });
+                } else if content_type.starts_with("audio/") {
+                    // Fetch audio data and convert to base64
+                    if let Ok(response) = reqwest::get(&attachment.url).await
+                        && let Ok(audio_bytes) = response.bytes().await
+                    {
+                        let audio_base64 =
+                            base64::engine::general_purpose::STANDARD.encode(&audio_bytes);
+                        let format = content_type
+                            .strip_prefix("audio/")
+                            .unwrap_or("mp3")
+                            .to_string();
+
+                        parts.push(ContentPart::InputAudio {
+                            input_audio: AudioData {
+                                data: audio_base64,
+                                format,
+                            },
+                        });
+                    }
                 } else if content_type == "application/pdf" {
                     parts.push(ContentPart::File {
                         file: File {
@@ -143,7 +166,7 @@ async fn build_conversation_history(
             "user"
         };
 
-        history.push(message_to_openrouter_message(ref_msg, role));
+        history.push(message_to_openrouter_message(ref_msg, role).await);
 
         // Try to fetch the full message to continue the chain
         match ctx.http.get_message(ref_msg.channel_id, ref_msg.id).await {
@@ -213,7 +236,7 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
             build_conversation_history(ctx, new_message, bot_user_id).await;
 
         // Add current user message
-        conversation_history.push(message_to_openrouter_message(new_message, "user"));
+        conversation_history.push(message_to_openrouter_message(new_message, "user").await);
 
         debug!(
             "Conversation history has {} messages",
