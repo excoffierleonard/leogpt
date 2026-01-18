@@ -5,10 +5,16 @@ use crate::error::{BotError, Result};
 
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
+// Discord's message limit is 2000 characters (standard users)
+// Roughly 1 token ≈ 4 characters, so 2000 chars ≈ 500 tokens
+// Using 512 tokens to be safe
+const MAX_TOKENS: u32 = 512;
+
 #[derive(Debug, Serialize)]
 struct OpenRouterRequest {
     model: String,
     messages: Vec<Message>,
+    max_tokens: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,6 +81,7 @@ impl OpenRouterClient {
         let request = OpenRouterRequest {
             model: self.model.clone(),
             messages,
+            max_tokens: MAX_TOKENS,
         };
 
         let response = self
