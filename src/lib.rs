@@ -8,7 +8,7 @@ use chrono::Utc;
 use config::Config;
 use error::Result;
 use log::{debug, info};
-use openrouter::{ContentPart, ImageUrl, Message, MessageContent, OpenRouterClient};
+use openrouter::{ContentPart, File, ImageUrl, Message, MessageContent, OpenRouterClient};
 use poise::{
     Framework, FrameworkOptions, builtins,
     serenity_prelude::{
@@ -64,39 +64,43 @@ pub async fn run() -> Result<()> {
     Ok(())
 }
 
-/// Converts a Discord message into an OpenRouter Message, including any image attachments
+/// Converts a Discord message into an OpenRouter Message, including any media attachments
 fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str) -> Message {
-    let has_images = !discord_msg.attachments.is_empty()
+    let has_media = !discord_msg.attachments.is_empty()
         && discord_msg.attachments.iter().any(|a| {
             a.content_type
                 .as_ref()
-                .map(|ct| ct.starts_with("image/"))
+                .map(|ct| ct.starts_with("image/") || ct == "application/pdf")
                 .unwrap_or(false)
         });
 
-    let content = if has_images {
+    let content = if has_media {
         let mut parts = Vec::new();
 
-        // Add text first (OpenRouter recommends text before images)
+        // Add text first (OpenRouter recommends text before media)
         if !discord_msg.content.is_empty() {
             parts.push(ContentPart::Text {
                 text: discord_msg.content.clone(),
             });
         }
 
-        // Add image attachments
+        // Add media attachments
         for attachment in &discord_msg.attachments {
-            if attachment
-                .content_type
-                .as_ref()
-                .map(|ct| ct.starts_with("image/"))
-                .unwrap_or(false)
-            {
-                parts.push(ContentPart::ImageUrl {
-                    image_url: ImageUrl {
-                        url: attachment.url.clone(),
-                    },
-                });
+            if let Some(content_type) = &attachment.content_type {
+                if content_type.starts_with("image/") {
+                    parts.push(ContentPart::ImageUrl {
+                        image_url: ImageUrl {
+                            url: attachment.url.clone(),
+                        },
+                    });
+                } else if content_type == "application/pdf" {
+                    parts.push(ContentPart::File {
+                        file: File {
+                            filename: attachment.filename.clone(),
+                            file_data: attachment.url.clone(),
+                        },
+                    });
+                }
             }
         }
 
