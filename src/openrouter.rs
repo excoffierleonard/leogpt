@@ -31,14 +31,16 @@ pub struct OpenRouterClient {
     api_key: String,
     client: reqwest::Client,
     model: String,
+    system_prompt: String,
 }
 
 impl OpenRouterClient {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(api_key: String, system_prompt: String) -> Self {
         Self {
             api_key,
             client: reqwest::Client::new(),
             model: "google/gemini-3-flash-preview".to_string(),
+            system_prompt,
         }
     }
 
@@ -47,10 +49,16 @@ impl OpenRouterClient {
 
         let request = OpenRouterRequest {
             model: self.model.clone(),
-            messages: vec![Message {
+            messages: vec![
+            Message {
+                role: "system".to_string(),
+                content: self.system_prompt.clone(),
+            },
+            Message {
                 role: "user".to_string(),
                 content: user_message.to_string(),
-            }],
+            },
+            ],
         };
 
         let response = self

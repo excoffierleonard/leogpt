@@ -6,3 +6,5 @@ services:
       context: .
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      SYSTEM_PROMPT: ${SYSTEM_PROMPT}
