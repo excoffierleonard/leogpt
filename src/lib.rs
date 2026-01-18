@@ -185,9 +185,16 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
                 );
             }
             Err(e) => {
-                let error_msg = format!("Sorry, I encountered an error: {}", e);
-                new_message.reply(&ctx.http, error_msg).await?;
-                info!("Error processing message: {}", e);
+                // Log the full technical error for debugging
+                log::error!(
+                    "Error processing message from {}: {}",
+                    new_message.author.tag(),
+                    e
+                );
+
+                // Send a user-friendly error message to Discord
+                let user_msg = e.user_message();
+                new_message.reply(&ctx.http, user_msg).await?;
             }
         }
     }

@@ -1,3 +1,4 @@
+use reqwest::StatusCode;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -27,6 +28,48 @@ pub enum BotError {
 impl From<poise::serenity_prelude::Error> for BotError {
     fn from(err: poise::serenity_prelude::Error) -> Self {
         BotError::Serenity(Box::new(err))
+    }
+}
+
+impl BotError {
+    /// Returns a user-friendly error message suitable for displaying in Discord
+    pub fn user_message(&self) -> String {
+        match self {
+            BotError::Serenity(_) => {
+                "Sorry, I'm having trouble communicating with Discord right now. Please try again later.".to_string()
+            }
+            BotError::Config(_) => {
+                "Sorry, there's a configuration issue on my end. Please contact the bot administrator.".to_string()
+            }
+            BotError::EnvVar(_) => {
+                "Sorry, there's a configuration issue on my end. Please contact the bot administrator.".to_string()
+            }
+            BotError::OpenRouterApi { status, .. } => {
+                match *status {
+                    StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
+                        "Sorry, I'm having authentication issues with my AI service. Please contact the bot administrator.".to_string()
+                    }
+                    StatusCode::TOO_MANY_REQUESTS => {
+                        "Sorry, I've hit my rate limit. Please try again in a few moments.".to_string()
+                    }
+                    status if status.is_server_error() => {
+                        "Sorry, the AI service is experiencing issues right now. Please try again later.".to_string()
+                    }
+                    status if status.is_client_error() => {
+                        "Sorry, there was an issue with my request to the AI service. Please try again or contact the bot administrator.".to_string()
+                    }
+                    _ => {
+                        "Sorry, I'm having trouble connecting to my AI service. Please try again later.".to_string()
+                    }
+                }
+            }
+            BotError::OpenRouterResponse(_) => {
+                "Sorry, I received an unexpected response from my AI service. Please try again.".to_string()
+            }
+            BotError::Reqwest(_) => {
+                "Sorry, I'm having network issues. Please try again in a moment.".to_string()
+            }
+        }
     }
 }
 
