@@ -10,6 +10,18 @@ pub enum BotError {
 
     #[error("Environment variable error: {0}")]
     EnvVar(#[from] std::env::VarError),
+
+    #[error("OpenRouter API error ({status}): {message}")]
+    OpenRouterApi {
+        status: reqwest::StatusCode,
+        message: String,
+    },
+
+    #[error("OpenRouter response error: {0}")]
+    OpenRouterResponse(String),
+
+    #[error("HTTP request error: {0}")]
+    Reqwest(#[from] reqwest::Error),
 }
 
 impl From<poise::serenity_prelude::Error> for BotError {
