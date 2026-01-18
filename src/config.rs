@@ -8,6 +8,7 @@ use crate::error::Result;
 pub struct Config {
     pub discord_token: String,
     pub openrouter_api_key: String,
+    pub openrouter_model: String,
     pub system_prompt: String,
 }
 
@@ -26,6 +27,11 @@ impl Config {
             e
         })?;
 
+        let openrouter_model = env::var("OPENROUTER_MODEL").map_err(|e| {
+            error!("Failed to load OPENROUTER_MODEL from environment: {}", e);
+            e
+        })?;
+
         let system_prompt = env::var("SYSTEM_PROMPT").map_err(|e| {
             error!("Failed to load SYSTEM_PROMPT from environment: {}", e);
             e
@@ -37,11 +43,13 @@ impl Config {
             "OpenRouter API key length: {} characters",
             openrouter_api_key.len()
         );
+        debug!("OpenRouter model: {}", openrouter_model);
         debug!("System prompt length: {} characters", system_prompt.len());
 
         Ok(Self {
             discord_token,
             openrouter_api_key,
+            openrouter_model,
             system_prompt,
         })
     }

@@ -26,6 +26,7 @@ pub async fn run() -> Result<()> {
     debug!("Initializing OpenRouter client");
     let openrouter_client = OpenRouterClient::new(
         config.openrouter_api_key.clone(),
+        config.openrouter_model.clone(),
         config.system_prompt.clone(),
     );
 

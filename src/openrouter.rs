@@ -35,11 +35,11 @@ pub struct OpenRouterClient {
 }
 
 impl OpenRouterClient {
-    pub fn new(api_key: String, system_prompt: String) -> Self {
+    pub fn new(api_key: String, model: String, system_prompt: String) -> Self {
         Self {
             api_key,
             client: reqwest::Client::new(),
-            model: "google/gemini-3-flash-preview".to_string(),
+            model,
             system_prompt,
         }
     }

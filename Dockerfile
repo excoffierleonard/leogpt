@@ -31,6 +31,6 @@ RUN cargo build --release
 FROM scratch
 WORKDIR /app
 # Copy the statically linked binary from the builder stage
-COPY --from=builder /app/target/release/leogpt .
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/leogpt .
 VOLUME ["/.config/leogpt"]
 CMD ["./leogpt"]

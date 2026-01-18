@@ -16,6 +16,12 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
+            - name: Install and Cache system dependencies
+              uses: awalsh128/cache-apt-pkgs-action@v1
+              with:
+                  packages: musl-dev
+                  version: 1.0
+
             - name: Cache Rust toolchain and dependencies
               uses: actions/cache@v3
               with:
@@ -45,6 +51,12 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
+
+            - name: Install and Cache system dependencies
+              uses: awalsh128/cache-apt-pkgs-action@v1
+              with:
+                  packages: musl-dev
+                  version: 1.0
 
             - name: Cache Rust toolchain and dependencies
               uses: actions/cache@v3
@@ -83,11 +95,11 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            # - name: Install and Cache system dependencies
-            #   uses: awalsh128/cache-apt-pkgs-action@v1
-            #   with:
-            #       packages:
-            #       version: 1.0
+            - name: Install and Cache system dependencies
+              uses: awalsh128/cache-apt-pkgs-action@v1
+              with:
+                  packages: musl-dev
+                  version: 1.0
 
             - name: Cache Rust toolchain and dependencies
               uses: actions/cache@v3
