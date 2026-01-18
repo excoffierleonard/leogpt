@@ -882,6 +882,7 @@ dependencies = [
 name = "leogpt"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "chrono",
  "dotenvy",
  "env_logger",
