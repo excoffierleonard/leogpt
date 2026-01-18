@@ -118,15 +118,18 @@ async fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str
                         debug!("Adding audio attachment ({} bytes)", audio_bytes.len());
                         let audio_base64 =
                             base64::engine::general_purpose::STANDARD.encode(&audio_bytes);
+
+                        // Extract format from MIME type (e.g., "audio/mpeg" -> "mp3")
                         let format = content_type
-                            .strip_prefix("audio/")
-                            .unwrap_or("mp3")
-                            .to_string();
+                            .trim_start_matches("audio/")
+                            .trim_start_matches("x-")
+                            .replace("mpeg", "mp3");
+                        debug!("Audio format: {} -> {}", content_type, format);
 
                         parts.push(ContentPart::InputAudio {
                             input_audio: AudioData {
                                 data: audio_base64,
-                                format,
+                                format: format.to_string(),
                             },
                         });
                     } else {
