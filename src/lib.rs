@@ -166,7 +166,7 @@ fn build_dynamic_context(message: &SerenityMessage) -> String {
 
     // User identification
     let username = user.global_name.as_ref().unwrap_or(&user.name);
-    context.push_str(&format!("\nUser: {}", username));
+    context.push_str(&format!("\nUser: {} (ID: {})", username, user.id));
 
     // Add guild-specific info if available
     if let Some(ref member) = user.member {

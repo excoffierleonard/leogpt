@@ -47,7 +47,7 @@ pub fn get_tool_definitions(model: &str) -> Vec<Tool> {
                 name: "get_user_info".to_string(),
                 description:
                     "Get detailed information about a Discord user in the current server, \
-                    including their roles, join date, and avatar."
+                    including their user ID, mention string, roles, join date, and avatar."
                         .to_string(),
                 parameters: json!({
                     "type": "object",
