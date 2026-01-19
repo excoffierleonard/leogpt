@@ -171,6 +171,7 @@ fn build_dynamic_context(message: &SerenityMessage) -> String {
 async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventResult {
     if let FullEvent::Message { new_message } = event
         && new_message.mentions_user_id(ctx.cache.current_user().id)
+        && new_message.author.id != ctx.cache.current_user().id
     {
         info!(
             "Received message from {} in channel {}: {}",
