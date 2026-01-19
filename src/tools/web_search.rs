@@ -68,7 +68,7 @@ pub async fn web_search(arguments: &str, api_key: &str, model: &str) -> Result<S
             role: "user",
             content: args.query.clone(),
         }],
-        max_tokens: 1024,
+        max_tokens: 4096,
     };
 
     let client = reqwest::Client::new();
