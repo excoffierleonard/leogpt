@@ -90,7 +90,7 @@ jobs:
           username: ${{ secrets.PROD_USERNAME }}
           key: ${{ secrets.PROD_SSH_KEY }}
           source: compose.yaml
-          target: /opt/${{ github.event.repository.name }}/compose.yaml
+          target: /opt/${{ github.event.repository.name }}/
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
