@@ -90,7 +90,7 @@ pub async fn web_search(arguments: &str, api_key: &str) -> Result<String> {
         .choices
         .first()
         .and_then(|c| c.message.content.clone())
-        .ok_or_else(|| BotError::OpenRouterResponse("No search results".to_string()))?;
+        .ok_or_else(|| BotError::OpenRouterResponse("No search results".into()))?;
 
     debug!("Web search completed");
 

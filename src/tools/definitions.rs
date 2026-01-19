@@ -96,5 +96,33 @@ pub fn get_tool_definitions() -> Vec<Tool> {
                 }),
             },
         },
+        Tool {
+            tool_type: "function".to_string(),
+            function: FunctionDefinition {
+                name: "generate_image".to_string(),
+                description: "Generate or edit images using AI. Creates new images from text \
+                    descriptions, or edits images from the conversation if the prompt requests \
+                    modifications. The model automatically sees recent images from the conversation."
+                    .to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "prompt": {
+                            "type": "string",
+                            "description": "Description of image to generate, or editing instructions (e.g., 'make it purple', 'add a hat')"
+                        },
+                        "aspect_ratio": {
+                            "type": "string",
+                            "description": "Aspect ratio (1:1, 16:9, 9:16, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 21:9). Default: 1:1"
+                        },
+                        "size": {
+                            "type": "string",
+                            "description": "Image resolution (1K, 2K, 4K). Default: 1K"
+                        }
+                    },
+                    "required": ["prompt"]
+                }),
+            },
+        },
     ]
 }

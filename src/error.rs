@@ -32,11 +32,17 @@ pub enum BotError {
     #[error("Parse error: {0}")]
     Parse(#[from] std::num::ParseIntError),
 
+    #[error("Base64 decode error: {0}")]
+    Base64Decode(#[from] base64::DecodeError),
+
     #[error("Tool execution error: {0}")]
     ToolExecution(String),
 
     #[error("Tool loop limit exceeded")]
     ToolLoopLimit,
+
+    #[error("Not in a server (DM context)")]
+    NotInServer,
 }
 
 impl From<poise::serenity_prelude::Error> for BotError {
@@ -91,6 +97,12 @@ impl BotError {
             }
             BotError::ToolLoopLimit => {
                 "Sorry, I got stuck in a loop. Please try rephrasing your request.".to_string()
+            }
+            BotError::Base64Decode(_) => {
+                "Sorry, I encountered an error processing image data. Please try again.".to_string()
+            }
+            BotError::NotInServer => {
+                "Sorry, this command only works in a server, not in DMs.".to_string()
             }
         }
     }

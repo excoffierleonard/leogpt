@@ -46,10 +46,6 @@ jobs:
       - name: Verify Documentation
         run: cargo doc --no-deps --all-features --document-private-items
 
-    #   - name: Dry run publish for core crate
-    #     run: |
-    #       cargo publish --dry-run 2>&1 | tee /dev/stderr | (! grep -q -v "^warning: aborting upload due to dry run" | grep -q "^warning:")
-
   publish:
     name: Publish Docker image
     needs: ci
@@ -77,3 +73,29 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to production
+    needs: publish
+    if: github.ref_name == 'main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Copy compose file to server
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          source: compose.yaml
+          target: /opt/${{ github.event.repository.name }}/compose.yaml
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: docker compose -f /opt/${{ github.event.repository.name }}/compose.yaml up -d --pull always
