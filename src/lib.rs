@@ -119,25 +119,23 @@ async fn build_conversation_history(
 
     // Walk up the reply chain
     while let Some(ref_msg) = &current_message.referenced_message {
-        // Add the referenced message to history (we'll reverse later)
-        let role = if ref_msg.author.id == bot_user_id {
+        // Fetch the full message to get attachments (referenced_message is partial)
+        let full_msg = match ctx.http.get_message(ref_msg.channel_id, ref_msg.id).await {
+            Ok(msg) => msg,
+            Err(e) => {
+                warn!("Failed to fetch message in reply chain: {}", e);
+                break;
+            }
+        };
+
+        let role = if full_msg.author.id == bot_user_id {
             MessageRole::Assistant
         } else {
             MessageRole::User
         };
 
-        history.push(message_to_openrouter_message(ref_msg, role).await);
-
-        // Try to fetch the full message to continue the chain
-        match ctx.http.get_message(ref_msg.channel_id, ref_msg.id).await {
-            Ok(msg) => {
-                current_message = msg;
-            }
-            Err(e) => {
-                warn!("Failed to fetch message in reply chain: {}", e);
-                break;
-            }
-        }
+        history.push(message_to_openrouter_message(&full_msg, role).await);
+        current_message = full_msg;
     }
 
     // Reverse to get chronological order
