@@ -15,16 +15,21 @@ jobs:
     name: CI
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Install system dependencies
-        run: sudo apt-get install -y musl-dev
+      - name: Cache system dependencies
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: musl-dev
+          version: 1.0
 
       - name: Add musl target
         run: rustup target add x86_64-unknown-linux-musl
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-directories: ~/.rustup
 
       - name: Format
         run: cargo fmt --all -- --check
@@ -52,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Login to Github Container Registry
         uses: docker/login-action@v3
