@@ -1,3 +1,5 @@
+//! OpenRouter API client for AI chat completions.
+
 use log::debug;
 use serde::{Deserialize, Serialize};
 
@@ -11,6 +13,7 @@ const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions"
 // Using 512 tokens to be safe
 const MAX_TOKENS: u32 = 512;
 
+/// Request payload for the OpenRouter API.
 #[derive(Debug, Serialize)]
 struct OpenRouterRequest {
     model: String,
@@ -20,7 +23,7 @@ struct OpenRouterRequest {
     tools: Option<Vec<Tool>>,
 }
 
-// Tool calling structures
+/// A tool definition for the OpenRouter API.
 #[derive(Debug, Clone, Serialize)]
 pub struct Tool {
     #[serde(rename = "type")]
@@ -28,6 +31,7 @@ pub struct Tool {
     pub function: FunctionDefinition,
 }
 
+/// Function definition within a tool.
 #[derive(Debug, Clone, Serialize)]
 pub struct FunctionDefinition {
     pub name: String,
@@ -35,6 +39,7 @@ pub struct FunctionDefinition {
     pub parameters: serde_json::Value,
 }
 
+/// A tool call requested by the model.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ToolCall {
     pub id: String,
@@ -43,6 +48,7 @@ pub struct ToolCall {
     pub function: FunctionCall,
 }
 
+/// Function call details within a tool call.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FunctionCall {
     pub name: String,
@@ -60,6 +66,7 @@ pub enum ChatResult {
     },
 }
 
+/// Message content that can be text or multi-part.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MessageContent {
@@ -67,6 +74,7 @@ pub enum MessageContent {
     MultiPart(Vec<ContentPart>),
 }
 
+/// A part of a multi-part message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentPart {
@@ -77,28 +85,33 @@ pub enum ContentPart {
     InputAudio { input_audio: AudioData },
 }
 
+/// Image URL for image content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageUrl {
     pub url: String,
 }
 
+/// Video URL for video content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VideoUrl {
     pub url: String,
 }
 
+/// File data for document content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct File {
     pub filename: String,
     pub file_data: String,
 }
 
+/// Audio data for audio input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioData {
     pub data: String,
     pub format: String,
 }
 
+/// A message in the chat conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub role: MessageRole,
@@ -120,6 +133,7 @@ struct Choice {
     message: Message,
 }
 
+/// Client for interacting with the OpenRouter API.
 pub struct OpenRouterClient {
     api_key: String,
     client: reqwest::Client,
@@ -128,6 +142,7 @@ pub struct OpenRouterClient {
 }
 
 impl OpenRouterClient {
+    /// Create a new OpenRouter client.
     pub fn new(api_key: String, model: String, system_prompt: String) -> Self {
         Self {
             api_key,
@@ -137,6 +152,7 @@ impl OpenRouterClient {
         }
     }
 
+    /// Send a chat request with conversation history.
     pub async fn chat_with_history(
         &self,
         mut messages: Vec<Message>,

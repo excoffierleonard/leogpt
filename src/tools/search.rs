@@ -1,8 +1,10 @@
+//! Channel message search tool implementation.
+
 use log::debug;
 use poise::serenity_prelude::GetMessages;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{BotError, Result};
+use crate::error::Result;
 
 use super::executor::ToolContext;
 
@@ -67,9 +69,7 @@ fn matches_username(author_name: &str, search_name: &str) -> bool {
 /// Fetches up to 100 recent messages and filters them by keyword and/or username.
 /// Supports case-insensitive and fuzzy matching.
 pub async fn search_channel_history(arguments: &str, tool_ctx: &ToolContext<'_>) -> Result<String> {
-    let args: SearchArgs = serde_json::from_str(arguments)
-        .map_err(|e| BotError::ToolExecution(format!("Invalid arguments: {}", e)))?;
-
+    let args: SearchArgs = serde_json::from_str(arguments)?;
     let result_limit = args.limit.unwrap_or(20).min(100);
 
     debug!(
@@ -77,12 +77,10 @@ pub async fn search_channel_history(arguments: &str, tool_ctx: &ToolContext<'_>)
         args.keyword, args.username, result_limit
     );
 
-    // Fetch recent messages from the channel
     let messages = tool_ctx
         .channel_id
         .messages(&tool_ctx.ctx.http, GetMessages::new().limit(MAX_MESSAGES))
-        .await
-        .map_err(|e| BotError::ToolExecution(format!("Failed to fetch messages: {}", e)))?;
+        .await?;
 
     debug!("Fetched {} messages from channel", messages.len());
 
@@ -123,6 +121,5 @@ pub async fn search_channel_history(arguments: &str, tool_ctx: &ToolContext<'_>)
 
     debug!("Found {} matching messages", results.len());
 
-    serde_json::to_string(&results)
-        .map_err(|e| BotError::ToolExecution(format!("Failed to serialize results: {}", e)))
+    Ok(serde_json::to_string(&results)?)
 }

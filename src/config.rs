@@ -1,9 +1,12 @@
+//! Configuration management for the leogpt bot.
+
 use std::env;
 
-use log::{debug, error, info};
+use log::{debug, info};
 
 use crate::error::Result;
 
+/// Bot configuration loaded from environment variables.
 #[derive(Debug, Clone)]
 pub struct Config {
     pub discord_token: String,
@@ -13,29 +16,15 @@ pub struct Config {
 }
 
 impl Config {
+    /// Load configuration from environment variables.
     pub fn from_env() -> Result<Self> {
         debug!("Loading configuration from environment");
         dotenvy::dotenv().ok();
 
-        let discord_token = env::var("DISCORD_TOKEN").map_err(|e| {
-            error!("Failed to load DISCORD_TOKEN from environment: {}", e);
-            e
-        })?;
-
-        let openrouter_api_key = env::var("OPENROUTER_API_KEY").map_err(|e| {
-            error!("Failed to load OPENROUTER_API_KEY from environment: {}", e);
-            e
-        })?;
-
-        let openrouter_model = env::var("OPENROUTER_MODEL").map_err(|e| {
-            error!("Failed to load OPENROUTER_MODEL from environment: {}", e);
-            e
-        })?;
-
-        let system_prompt = env::var("SYSTEM_PROMPT").map_err(|e| {
-            error!("Failed to load SYSTEM_PROMPT from environment: {}", e);
-            e
-        })?;
+        let discord_token = env::var("DISCORD_TOKEN")?;
+        let openrouter_api_key = env::var("OPENROUTER_API_KEY")?;
+        let openrouter_model = env::var("OPENROUTER_MODEL")?;
+        let system_prompt = env::var("SYSTEM_PROMPT")?;
 
         info!("Configuration loaded successfully");
         debug!("Discord token length: {} characters", discord_token.len());

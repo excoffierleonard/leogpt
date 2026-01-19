@@ -1,3 +1,5 @@
+//! LeoGPT - A Discord bot powered by OpenRouter AI.
+
 pub mod config;
 pub mod error;
 pub mod media;

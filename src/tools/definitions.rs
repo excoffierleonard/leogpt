@@ -1,3 +1,5 @@
+//! Tool definitions for the OpenRouter tool calling API.
+
 use serde_json::json;
 
 use crate::openrouter::{FunctionDefinition, Tool};
