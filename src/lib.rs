@@ -2,22 +2,24 @@ pub mod config;
 pub mod error;
 pub mod media;
 pub mod openrouter;
+pub mod tools;
 pub mod types;
 
 use std::error::Error as StdError;
 
 use chrono::Utc;
 use config::Config;
-use error::Result;
+use error::{BotError, Result};
 use log::{debug, info, warn};
 use media::{has_supported_media, process_attachments};
-use openrouter::{ContentPart, Message, MessageContent, OpenRouterClient};
+use openrouter::{ChatResult, ContentPart, Message, MessageContent, OpenRouterClient};
 use poise::{
     Framework, FrameworkOptions, builtins,
     serenity_prelude::{
         ClientBuilder, Context, FullEvent, GatewayIntents, Message as SerenityMessage, UserId,
     },
 };
+use tools::{ToolContext, ToolExecutor, get_tool_definitions};
 use types::MessageRole;
 
 type EventResult = std::result::Result<(), Box<dyn StdError + Send + Sync>>;
@@ -91,7 +93,12 @@ async fn message_to_openrouter_message(
         MessageContent::Text(discord_msg.content.clone())
     };
 
-    Message { role, content }
+    Message {
+        role,
+        content: Some(content),
+        tool_calls: None,
+        tool_call_id: None,
+    }
 }
 
 /// Builds conversation history by walking up the Discord reply chain
@@ -168,6 +175,8 @@ fn build_dynamic_context(message: &SerenityMessage) -> String {
     context
 }
 
+const MAX_TOOL_ITERATIONS: usize = 5;
+
 async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventResult {
     if let FullEvent::Message { new_message } = event
         && new_message.mentions_user_id(ctx.cache.current_user().id)
@@ -203,13 +212,77 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
         // Build dynamic context for the system prompt
         let dynamic_context = build_dynamic_context(new_message);
 
-        match data
-            .openrouter_client
-            .chat_with_history(conversation_history, Some(dynamic_context))
-            .await
-        {
+        // Get tool definitions
+        let tools = Some(get_tool_definitions());
+
+        // Tool execution context
+        let tool_ctx = ToolContext {
+            ctx,
+            channel_id: new_message.channel_id,
+            guild_id: new_message.guild_id,
+        };
+
+        // Tool loop
+        let mut iterations = 0;
+        let result: std::result::Result<String, BotError> = loop {
+            iterations += 1;
+            if iterations > MAX_TOOL_ITERATIONS {
+                break Err(BotError::ToolLoopLimit);
+            }
+
+            // Refresh typing indicator
+            let _ = new_message.channel_id.broadcast_typing(&ctx.http).await;
+
+            match data
+                .openrouter_client
+                .chat_with_history(
+                    conversation_history.clone(),
+                    Some(dynamic_context.clone()),
+                    tools.clone(),
+                )
+                .await
+            {
+                Ok(ChatResult::TextResponse(text)) => break Ok(text),
+                Ok(ChatResult::ToolCalls {
+                    tool_calls,
+                    assistant_message,
+                }) => {
+                    debug!("Processing {} tool calls", tool_calls.len());
+
+                    // Add assistant's tool call message to history
+                    conversation_history.push(assistant_message);
+
+                    // Execute each tool and add results
+                    for tool_call in tool_calls {
+                        let result = match ToolExecutor::execute(
+                            &tool_call.function.name,
+                            &tool_call.function.arguments,
+                            &tool_ctx,
+                        )
+                        .await
+                        {
+                            Ok(result) => result,
+                            Err(e) => {
+                                warn!("Tool execution failed: {}", e);
+                                format!("Error: {}", e)
+                            }
+                        };
+
+                        // Add tool result to history
+                        conversation_history.push(Message {
+                            role: MessageRole::Tool,
+                            content: Some(MessageContent::Text(result)),
+                            tool_calls: None,
+                            tool_call_id: Some(tool_call.id.clone()),
+                        });
+                    }
+                }
+                Err(e) => break Err(e),
+            }
+        };
+
+        match result {
             Ok(reply_content) => {
-                // Send reply
                 new_message.reply(&ctx.http, &reply_content).await?;
 
                 info!(
@@ -220,14 +293,12 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
                 );
             }
             Err(e) => {
-                // Log the full technical error for debugging
                 log::error!(
                     "Error processing message from {}: {}",
                     new_message.author.tag(),
                     e
                 );
 
-                // Send a user-friendly error message to Discord
                 let user_msg = e.user_message();
                 new_message.reply(&ctx.http, user_msg).await?;
             }
