@@ -136,7 +136,13 @@ fn build_dynamic_context(message: &SerenityMessage) -> String {
     let timestamp = Utc::now().format("%Y-%m-%d %H:%M:%S UTC");
     let user = &message.author;
 
-    let mut context = format!("Current datetime: {}", timestamp);
+    // Base context for the system prompt
+    let mut context = String::from(
+        "You are a Discord bot. Users interact with you by mentioning you in messages.",
+    );
+
+    // Current datetime
+    context.push_str(&format!("\nCurrent datetime: {}", timestamp));
 
     // User identification
     let username = user.global_name.as_ref().unwrap_or(&user.name);
