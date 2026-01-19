@@ -6,6 +6,7 @@ use poise::serenity_prelude::{ChannelId, Context, GuildId};
 use crate::error::{BotError, Result};
 
 use super::search::search_channel_history;
+use super::server_info::get_server_info;
 use super::user_info::get_user_info;
 
 /// Context needed to execute Discord-native tools
@@ -30,6 +31,7 @@ impl ToolExecutor {
         match name {
             "search_channel_history" => search_channel_history(arguments, tool_ctx).await,
             "get_user_info" => get_user_info(arguments, tool_ctx).await,
+            "get_server_info" => get_server_info(arguments, tool_ctx).await,
             _ => {
                 warn!("Unknown tool requested: {}", name);
                 Err(BotError::ToolExecution(format!("Unknown tool: {}", name)))

@@ -3,6 +3,7 @@
 mod definitions;
 mod executor;
 mod search;
+mod server_info;
 mod user_info;
 
 pub use definitions::get_tool_definitions;

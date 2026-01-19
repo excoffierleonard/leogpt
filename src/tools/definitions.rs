@@ -62,5 +62,19 @@ pub fn get_tool_definitions() -> Vec<Tool> {
                 }),
             },
         },
+        Tool {
+            tool_type: "function".to_string(),
+            function: FunctionDefinition {
+                name: "get_server_info".to_string(),
+                description: "Get detailed information about the current Discord server, \
+                    including member count, boost level, channels, and roles."
+                    .to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }),
+            },
+        },
     ]
 }
