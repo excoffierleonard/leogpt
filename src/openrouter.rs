@@ -1,3 +1,5 @@
+//! OpenRouter API client for AI chat completions.
+
 use log::debug;
 use serde::{Deserialize, Serialize};
 
@@ -11,13 +13,60 @@ const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions"
 // Using 512 tokens to be safe
 const MAX_TOKENS: u32 = 512;
 
+/// Request payload for the OpenRouter API.
 #[derive(Debug, Serialize)]
 struct OpenRouterRequest {
     model: String,
     messages: Vec<Message>,
     max_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<Tool>>,
 }
 
+/// A tool definition for the OpenRouter API.
+#[derive(Debug, Clone, Serialize)]
+pub struct Tool {
+    #[serde(rename = "type")]
+    pub tool_type: String,
+    pub function: FunctionDefinition,
+}
+
+/// Function definition within a tool.
+#[derive(Debug, Clone, Serialize)]
+pub struct FunctionDefinition {
+    pub name: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+}
+
+/// A tool call requested by the model.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ToolCall {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub call_type: String,
+    pub function: FunctionCall,
+}
+
+/// Function call details within a tool call.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct FunctionCall {
+    pub name: String,
+    pub arguments: String,
+}
+
+/// Result of a chat completion
+pub enum ChatResult {
+    /// Model produced a text response
+    TextResponse(String),
+    /// Model wants to call tools
+    ToolCalls {
+        tool_calls: Vec<ToolCall>,
+        assistant_message: Message,
+    },
+}
+
+/// Message content that can be text or multi-part.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MessageContent {
@@ -25,6 +74,7 @@ pub enum MessageContent {
     MultiPart(Vec<ContentPart>),
 }
 
+/// A part of a multi-part message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentPart {
@@ -35,32 +85,42 @@ pub enum ContentPart {
     InputAudio { input_audio: AudioData },
 }
 
+/// Image URL for image content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageUrl {
     pub url: String,
 }
 
+/// Video URL for video content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VideoUrl {
     pub url: String,
 }
 
+/// File data for document content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct File {
     pub filename: String,
     pub file_data: String,
 }
 
+/// Audio data for audio input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioData {
     pub data: String,
     pub format: String,
 }
 
+/// A message in the chat conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub role: MessageRole,
-    pub content: MessageContent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<MessageContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<ToolCall>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -73,6 +133,7 @@ struct Choice {
     message: Message,
 }
 
+/// Client for interacting with the OpenRouter API.
 pub struct OpenRouterClient {
     api_key: String,
     client: reqwest::Client,
@@ -81,6 +142,7 @@ pub struct OpenRouterClient {
 }
 
 impl OpenRouterClient {
+    /// Create a new OpenRouter client.
     pub fn new(api_key: String, model: String, system_prompt: String) -> Self {
         Self {
             api_key,
@@ -90,11 +152,13 @@ impl OpenRouterClient {
         }
     }
 
+    /// Send a chat request with conversation history.
     pub async fn chat_with_history(
         &self,
         mut messages: Vec<Message>,
         dynamic_context: Option<String>,
-    ) -> Result<String> {
+        tools: Option<Vec<Tool>>,
+    ) -> Result<ChatResult> {
         debug!(
             "Sending request to OpenRouter API with {} messages",
             messages.len()
@@ -113,7 +177,9 @@ impl OpenRouterClient {
                 0,
                 Message {
                     role: MessageRole::System,
-                    content: MessageContent::Text(full_system_prompt),
+                    content: Some(MessageContent::Text(full_system_prompt)),
+                    tool_calls: None,
+                    tool_call_id: None,
                 },
             );
         }
@@ -122,6 +188,7 @@ impl OpenRouterClient {
             model: self.model.clone(),
             messages,
             max_tokens: MAX_TOKENS,
+            tools,
         };
 
         let response = self
@@ -151,23 +218,35 @@ impl OpenRouterClient {
             .message
             .clone();
 
-        // Extract text from the response (assistant responses are always text)
+        // Check if response contains tool calls
+        if let Some(ref tool_calls) = message.tool_calls
+            && !tool_calls.is_empty()
+        {
+            debug!(
+                "Received {} tool calls from OpenRouter API",
+                tool_calls.len()
+            );
+            return Ok(ChatResult::ToolCalls {
+                tool_calls: tool_calls.clone(),
+                assistant_message: message,
+            });
+        }
+
+        // Extract text from the response
         let reply = match message.content {
-            MessageContent::Text(text) => text,
-            MessageContent::MultiPart(parts) => {
-                // Concatenate all text parts (shouldn't happen for assistant responses, but handle it)
-                parts
-                    .iter()
-                    .filter_map(|part| match part {
-                        ContentPart::Text { text } => Some(text.as_str()),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            }
+            Some(MessageContent::Text(text)) => text,
+            Some(MessageContent::MultiPart(parts)) => parts
+                .iter()
+                .filter_map(|part| match part {
+                    ContentPart::Text { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join("\n"),
+            None => String::new(),
         };
 
         debug!("Received response from OpenRouter API");
-        Ok(reply)
+        Ok(ChatResult::TextResponse(reply))
     }
 }
