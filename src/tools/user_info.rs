@@ -1,3 +1,5 @@
+//! User information lookup tool implementation.
+
 use log::debug;
 use poise::serenity_prelude::UserId;
 use serde::{Deserialize, Serialize};
@@ -46,38 +48,26 @@ fn matches_username(name: &str, search: &str) -> bool {
 /// Looks up a user by their ID (exact match) or username (fuzzy match).
 /// Returns user details including roles, join date, and avatar.
 pub async fn get_user_info(arguments: &str, tool_ctx: &ToolContext<'_>) -> Result<String> {
-    let args: UserInfoArgs = serde_json::from_str(arguments)
-        .map_err(|e| BotError::ToolExecution(format!("Invalid arguments: {}", e)))?;
+    let args: UserInfoArgs = serde_json::from_str(arguments)?;
 
     debug!(
         "Looking up user: username={:?}, user_id={:?}",
         args.username, args.user_id
     );
 
-    // Need a guild to look up members
     let guild_id = tool_ctx
         .guild_id
         .ok_or_else(|| BotError::ToolExecution("Not in a server (DM context)".to_string()))?;
 
-    // Find member by ID or username
     let member = match (&args.user_id, &args.username) {
         (Some(id_str), _) => {
-            // Look up by user ID (exact match)
-            let user_id: UserId = id_str
-                .parse()
-                .map_err(|_| BotError::ToolExecution(format!("Invalid user ID: {}", id_str)))?;
-
-            guild_id
-                .member(&tool_ctx.ctx.http, user_id)
-                .await
-                .map_err(|e| BotError::ToolExecution(format!("User not found: {}", e)))?
+            let user_id: UserId = id_str.parse()?;
+            guild_id.member(&tool_ctx.ctx.http, user_id).await?
         }
         (None, Some(username)) => {
-            // Search guild members by username (fuzzy match)
             let members = guild_id
                 .members(&tool_ctx.ctx.http, Some(1000), None)
-                .await
-                .map_err(|e| BotError::ToolExecution(format!("Failed to fetch members: {}", e)))?;
+                .await?;
 
             debug!("Searching through {} guild members", members.len());
 
@@ -120,6 +110,5 @@ pub async fn get_user_info(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resul
 
     debug!("Found user: {}", result.username);
 
-    serde_json::to_string(&result)
-        .map_err(|e| BotError::ToolExecution(format!("Failed to serialize result: {}", e)))
+    Ok(serde_json::to_string(&result)?)
 }

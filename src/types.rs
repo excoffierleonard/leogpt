@@ -1,3 +1,5 @@
+//! Common types used throughout the leogpt bot.
+
 use serde::{Deserialize, Serialize};
 
 /// Role of a message in the conversation

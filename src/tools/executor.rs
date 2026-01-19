@@ -1,3 +1,5 @@
+//! Tool executor for dispatching tool calls.
+
 use log::{debug, warn};
 use poise::serenity_prelude::{ChannelId, Context, GuildId};
 

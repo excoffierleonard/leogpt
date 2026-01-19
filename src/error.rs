@@ -1,3 +1,5 @@
+//! Error types and result aliases for the leogpt bot.
+
 use reqwest::StatusCode;
 use thiserror::Error;
 
@@ -23,6 +25,12 @@ pub enum BotError {
 
     #[error("HTTP request error: {0}")]
     Reqwest(#[from] reqwest::Error),
+
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+
+    #[error("Parse error: {0}")]
+    Parse(#[from] std::num::ParseIntError),
 
     #[error("Tool execution error: {0}")]
     ToolExecution(String),
@@ -74,6 +82,9 @@ impl BotError {
             }
             BotError::Reqwest(_) => {
                 "Sorry, I'm having network issues. Please try again in a moment.".to_string()
+            }
+            BotError::Json(_) | BotError::Parse(_) => {
+                "Sorry, I encountered a data processing error. Please try again.".to_string()
             }
             BotError::ToolExecution(_) => {
                 "Sorry, I encountered an error while trying to look up information. Please try again.".to_string()

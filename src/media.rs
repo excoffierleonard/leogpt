@@ -1,3 +1,5 @@
+//! Media attachment processing for Discord messages.
+
 use base64::Engine;
 use log::{debug, warn};
 use poise::serenity_prelude::Attachment;
