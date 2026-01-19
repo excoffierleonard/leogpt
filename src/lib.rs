@@ -28,6 +28,8 @@ type EventResult = std::result::Result<(), Box<dyn StdError + Send + Sync>>;
 
 struct Data {
     openrouter_client: OpenRouterClient,
+    openrouter_api_key: String,
+    openrouter_model: String,
 }
 
 pub async fn run() -> Result<()> {
@@ -44,25 +46,34 @@ pub async fn run() -> Result<()> {
     debug!("Setting up gateway intents");
     let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
 
+    // Extract values before moving config into closure
+    let discord_token = config.discord_token.clone();
+    let api_key = config.openrouter_api_key.clone();
+    let model = config.openrouter_model.clone();
+
     debug!("Building framework");
     let framework = Framework::builder()
         .options(FrameworkOptions {
             event_handler: |ctx, event, _framework, data| Box::pin(event_handler(ctx, event, data)),
             ..Default::default()
         })
-        .setup(|ctx, _ready, framework| {
+        .setup(move |ctx, _ready, framework| {
             Box::pin(async move {
                 info!("Bot is ready and connected to Discord");
                 debug!("Registering commands globally");
                 builtins::register_globally(ctx, &framework.options().commands).await?;
                 info!("Commands registered successfully");
-                Ok(Data { openrouter_client })
+                Ok(Data {
+                    openrouter_client,
+                    openrouter_api_key: api_key,
+                    openrouter_model: model,
+                })
             })
         })
         .build();
 
     debug!("Creating Discord client");
-    let mut client = ClientBuilder::new(config.discord_token, intents)
+    let mut client = ClientBuilder::new(discord_token, intents)
         .framework(framework)
         .await?;
 
@@ -214,14 +225,16 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
         // Build dynamic context for the system prompt
         let dynamic_context = build_dynamic_context(new_message);
 
-        // Get tool definitions
-        let tools = Some(get_tool_definitions());
+        // Get tool definitions (conditional based on model)
+        let tools = Some(get_tool_definitions(&data.openrouter_model));
 
         // Tool execution context
         let tool_ctx = ToolContext {
             ctx,
             channel_id: new_message.channel_id,
             guild_id: new_message.guild_id,
+            openrouter_api_key: &data.openrouter_api_key,
+            openrouter_model: &data.openrouter_model,
         };
 
         // Tool loop
