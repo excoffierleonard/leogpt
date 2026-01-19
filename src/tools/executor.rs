@@ -16,7 +16,6 @@ pub struct ToolContext<'a> {
     pub channel_id: ChannelId,
     pub guild_id: Option<GuildId>,
     pub openrouter_api_key: &'a str,
-    pub openrouter_model: &'a str,
 }
 
 /// Executor for Discord-native tools
@@ -35,14 +34,7 @@ impl ToolExecutor {
             "search_channel_history" => search_channel_history(arguments, tool_ctx).await,
             "get_user_info" => get_user_info(arguments, tool_ctx).await,
             "get_server_info" => get_server_info(arguments, tool_ctx).await,
-            "web_search" => {
-                web_search(
-                    arguments,
-                    tool_ctx.openrouter_api_key,
-                    tool_ctx.openrouter_model,
-                )
-                .await
-            }
+            "web_search" => web_search(arguments, tool_ctx.openrouter_api_key).await,
             _ => {
                 warn!("Unknown tool requested: {}", name);
                 Err(BotError::ToolExecution(format!("Unknown tool: {}", name)))
