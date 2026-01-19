@@ -18,10 +18,11 @@ use openrouter::{ChatResult, ContentPart, Message, MessageContent, OpenRouterCli
 use poise::{
     Framework, FrameworkOptions, builtins,
     serenity_prelude::{
-        ClientBuilder, Context, FullEvent, GatewayIntents, Message as SerenityMessage, UserId,
+        ClientBuilder, Context, CreateAttachment, CreateMessage, FullEvent, GatewayIntents,
+        Message as SerenityMessage, UserId,
     },
 };
-use tools::{ToolContext, ToolExecutor, get_tool_definitions};
+use tools::{ImageAttachment, ToolContext, ToolExecutor, get_tool_definitions};
 use types::MessageRole;
 
 type EventResult = std::result::Result<(), Box<dyn StdError + Send + Sync>>;
@@ -229,9 +230,12 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
             openrouter_api_key: &data.openrouter_api_key,
         };
 
-        // Tool loop
+        // Collect images generated during tool execution
+        let mut generated_images: Vec<ImageAttachment> = Vec::new();
+
+        // Tool loop - returns Some(text) for text response, None for image-only response
         let mut iterations = 0;
-        let result: std::result::Result<String, BotError> = loop {
+        let result: std::result::Result<Option<String>, BotError> = loop {
             iterations += 1;
             if iterations > MAX_TOOL_ITERATIONS {
                 break Err(BotError::ToolLoopLimit);
@@ -249,7 +253,7 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
                 )
                 .await
             {
-                Ok(ChatResult::TextResponse(text)) => break Ok(text),
+                Ok(ChatResult::TextResponse(text)) => break Ok(Some(text)),
                 Ok(ChatResult::ToolCalls {
                     tool_calls,
                     assistant_message,
@@ -261,27 +265,39 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
 
                     // Execute each tool and add results
                     for tool_call in tool_calls {
-                        let result = match ToolExecutor::execute(
+                        let (result_text, maybe_image) = match ToolExecutor::execute(
                             &tool_call.function.name,
                             &tool_call.function.arguments,
                             &tool_ctx,
                         )
                         .await
                         {
-                            Ok(result) => result,
+                            Ok(output) => (output.text, output.image),
                             Err(e) => {
                                 warn!("Tool execution failed: {}", e);
-                                format!("Error: {}", e)
+                                (format!("Error: {}", e), None)
                             }
                         };
+
+                        // If an image was generated, collect it and exit the loop
+                        // to send just the image without further LLM processing
+                        if let Some(image) = maybe_image {
+                            generated_images.push(image);
+                            break;
+                        }
 
                         // Add tool result to history
                         conversation_history.push(Message {
                             role: MessageRole::Tool,
-                            content: Some(MessageContent::Text(result)),
+                            content: Some(MessageContent::Text(result_text)),
                             tool_calls: None,
                             tool_call_id: Some(tool_call.id.clone()),
                         });
+                    }
+
+                    // If we have images, exit the tool loop entirely
+                    if !generated_images.is_empty() {
+                        break Ok(None);
                     }
                 }
                 Err(e) => break Err(e),
@@ -289,15 +305,70 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
         };
 
         match result {
-            Ok(reply_content) => {
-                new_message.reply(&ctx.http, &reply_content).await?;
+            Ok(maybe_text) => {
+                // Send reply: text only, image only, or both
+                match (maybe_text, generated_images.is_empty()) {
+                    (Some(text), true) => {
+                        // Text only
+                        new_message.reply(&ctx.http, &text).await?;
+                        info!(
+                            "Replied to {} in channel {}: {}",
+                            new_message.author.tag(),
+                            new_message.channel_id,
+                            text
+                        );
+                    }
+                    (None, false) => {
+                        // Image only
+                        let attachments: Vec<CreateAttachment> = generated_images
+                            .into_iter()
+                            .map(|img| CreateAttachment::bytes(img.data, img.filename))
+                            .collect();
 
-                info!(
-                    "Replied to {} in channel {}: {}",
-                    new_message.author.tag(),
-                    new_message.channel_id,
-                    reply_content
-                );
+                        let message = CreateMessage::new()
+                            .reference_message(new_message)
+                            .add_files(attachments);
+
+                        new_message
+                            .channel_id
+                            .send_message(&ctx.http, message)
+                            .await?;
+
+                        info!(
+                            "Replied to {} in channel {} with image",
+                            new_message.author.tag(),
+                            new_message.channel_id
+                        );
+                    }
+                    (Some(text), false) => {
+                        // Text + images
+                        let attachments: Vec<CreateAttachment> = generated_images
+                            .into_iter()
+                            .map(|img| CreateAttachment::bytes(img.data, img.filename))
+                            .collect();
+
+                        let message = CreateMessage::new()
+                            .content(&text)
+                            .reference_message(new_message)
+                            .add_files(attachments);
+
+                        new_message
+                            .channel_id
+                            .send_message(&ctx.http, message)
+                            .await?;
+
+                        info!(
+                            "Replied to {} in channel {}: {} (with image)",
+                            new_message.author.tag(),
+                            new_message.channel_id,
+                            text
+                        );
+                    }
+                    (None, true) => {
+                        // No text and no images - shouldn't happen, but handle gracefully
+                        warn!("No response content generated");
+                    }
+                }
             }
             Err(e) => {
                 log::error!(
