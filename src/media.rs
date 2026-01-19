@@ -1,6 +1,6 @@
 //! Media attachment processing for Discord messages.
 
-use base64::Engine;
+use base64::{Engine, engine::general_purpose::STANDARD};
 use log::{debug, warn};
 use poise::serenity_prelude::Attachment;
 
@@ -80,7 +80,7 @@ async fn fetch_audio_as_base64(url: &str) -> Option<(String, usize)> {
     let response = reqwest::get(url).await.ok()?;
     let audio_bytes = response.bytes().await.ok()?;
     let len = audio_bytes.len();
-    let audio_base64 = base64::engine::general_purpose::STANDARD.encode(&audio_bytes);
+    let audio_base64 = STANDARD.encode(&audio_bytes);
     Some((audio_base64, len))
 }
 

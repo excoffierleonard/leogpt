@@ -213,7 +213,7 @@ impl OpenRouterClient {
         let message = api_response
             .choices
             .first()
-            .ok_or_else(|| BotError::OpenRouterResponse("No choices in response".to_string()))?
+            .ok_or_else(|| BotError::OpenRouterResponse("No choices in response".into()))?
             .message
             .clone();
 

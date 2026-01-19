@@ -1,5 +1,7 @@
 //! Channel message search tool implementation.
 
+use std::cmp::Ordering;
+
 use log::debug;
 use poise::serenity_prelude::{GetMessages, Message as DiscordMessage};
 use serde::{Deserialize, Serialize};
@@ -235,7 +237,7 @@ async fn semantic_search(
         .collect();
 
     // Sort by similarity (highest first)
-    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
 
     // Take top results
     Ok(scored
