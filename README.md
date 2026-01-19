@@ -15,7 +15,7 @@ A Discord bot that connects to AI models through OpenRouter. Mention the bot in 
 
 Create a `.env` file:
 
-```
+```env
 DISCORD_TOKEN=your_discord_bot_token
 OPENROUTER_API_KEY=your_openrouter_api_key
 OPENROUTER_MODEL=anthropic/claude-sonnet-4-20250514
@@ -34,4 +34,4 @@ Mention the bot in Discord to start a conversation. Reply to its messages to con
 
 ## License
 
-MIT
+[LICENSE](LICENSE)
