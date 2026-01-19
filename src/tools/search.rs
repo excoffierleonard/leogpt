@@ -97,8 +97,16 @@ pub async fn search_channel_history(arguments: &str, tool_ctx: &ToolContext<'_>)
 
         // Filter by username if provided
         if let Some(ref username) = args.username {
-            let author_name = msg.author.global_name.as_ref().unwrap_or(&msg.author.name);
-            if !matches_username(author_name, username) {
+            // Check server nickname, global name, and username
+            let nick = msg.member.as_ref().and_then(|m| m.nick.as_deref());
+            let global_name = msg.author.global_name.as_deref();
+            let name = &msg.author.name;
+
+            let matches = nick.is_some_and(|n| matches_username(n, username))
+                || global_name.is_some_and(|g| matches_username(g, username))
+                || matches_username(name, username);
+
+            if !matches {
                 continue;
             }
         }
