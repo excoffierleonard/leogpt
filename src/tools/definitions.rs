@@ -17,16 +17,16 @@ pub fn get_tool_definitions(model: &str) -> Vec<Tool> {
             tool_type: "function".to_string(),
             function: FunctionDefinition {
                 name: "search_channel_history".to_string(),
-                description: "Search recent messages in the current Discord channel. \
-                    Supports fuzzy matching and case-insensitive search. \
-                    Searches up to 100 recent messages."
+                description: "Search recent messages in the current Discord channel using \
+                    semantic search. Understands meaning, not just keywords - 'food discussion' \
+                    finds messages about pizza, dinner, etc. Searches up to 100 recent messages."
                     .to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
-                        "keyword": {
+                        "query": {
                             "type": "string",
-                            "description": "Text to search for in message content (supports fuzzy matching)"
+                            "description": "What to search for (semantic search - understands meaning)"
                         },
                         "username": {
                             "type": "string",

@@ -82,10 +82,7 @@ pub async fn web_search(arguments: &str, api_key: &str, model: &str) -> Result<S
 
     if !response.status().is_success() {
         let status = response.status();
-        let message = response
-            .text()
-            .await
-            .unwrap_or_else(|e| format!("Failed to read error response: {}", e));
+        let message = response.text().await?;
         return Err(BotError::OpenRouterApi { status, message });
     }
 
@@ -95,7 +92,7 @@ pub async fn web_search(arguments: &str, api_key: &str, model: &str) -> Result<S
         .choices
         .first()
         .and_then(|c| c.message.content.clone())
-        .unwrap_or_else(|| "No results found.".to_string());
+        .ok_or_else(|| BotError::OpenRouterResponse("No search results".to_string()))?;
 
     debug!("Web search completed");
 

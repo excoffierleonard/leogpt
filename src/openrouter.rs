@@ -202,10 +202,7 @@ impl OpenRouterClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let message = response
-                .text()
-                .await
-                .unwrap_or_else(|e| format!("Failed to read error response: {}", e));
+            let message = response.text().await?;
             return Err(BotError::OpenRouterApi { status, message });
         }
 
