@@ -2,22 +2,34 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Role of a message in the conversation
+/// Role of a message in the conversation.
+///
+/// Maps to OpenRouter API message roles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageRole {
+    /// Message from the human user
     User,
+    /// Message from the AI assistant
     Assistant,
+    /// System prompt or instructions
     System,
+    /// Result from a tool execution
     Tool,
 }
 
-/// Supported media types for attachments
+/// Supported media types for attachments.
+///
+/// Determines how Discord attachments are processed for the OpenRouter API.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MediaType {
+    /// Image files (PNG, JPEG, GIF, WebP)
     Image,
+    /// Video files (MP4, WebM)
     Video,
+    /// Audio files (MP3, WAV, OGG, FLAC)
     Audio,
+    /// PDF documents
     Pdf,
 }
 
@@ -53,6 +65,7 @@ impl AudioFormat {
         AudioFormat(format)
     }
 
+    /// Returns the format string for the OpenRouter API
     pub fn as_str(&self) -> &str {
         &self.0
     }

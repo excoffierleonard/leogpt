@@ -12,7 +12,7 @@ use std::error::Error as StdError;
 use chrono::Utc;
 use config::Config;
 use error::{BotError, Result};
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use media::{has_supported_media, process_attachments};
 use openrouter::{ChatResult, ContentPart, Message, MessageContent, OpenRouterClient};
 use poise::{
@@ -393,7 +393,7 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
                 }
             }
             Err(e) => {
-                log::error!(
+                error!(
                     "Error processing message from {}: {}",
                     new_message.author.tag(),
                     e

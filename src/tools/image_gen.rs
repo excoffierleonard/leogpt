@@ -130,6 +130,8 @@ fn parse_data_url(data_url: &str) -> Result<(Vec<u8>, String)> {
         .ok_or_else(|| BotError::ToolExecution("Invalid data URL: missing data".into()))?;
 
     // Extract file extension from mime type (e.g., "image/png;base64" -> "png")
+    // Default to PNG if MIME type parsing fails - safe fallback since
+    // most image generation models output PNG and Discord accepts any format
     let extension = mime_and_encoding
         .split(';')
         .next()
