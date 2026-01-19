@@ -1,6 +1,7 @@
 //! Image generation tool implementation using OpenRouter's multimodal API.
 
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
+use chrono::Utc;
 use log::debug;
 use serde::{Deserialize, Serialize};
 
@@ -189,7 +190,7 @@ pub async fn generate_image(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
     let content = if tool_ctx.recent_images.is_empty() {
         MessageContent::Text(args.prompt.clone())
     } else {
-        // Include all recent images as context, then the prompt
+        // Include recent images as context, then the prompt
         let mut parts: Vec<ContentPart> = tool_ctx
             .recent_images
             .iter()
@@ -241,7 +242,7 @@ pub async fn generate_image(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
 
     // Parse the data URL to get raw bytes and format
     let (image_bytes, extension) = parse_data_url(&data_url)?;
-    let filename = format!("generated.{}", extension);
+    let filename = format!("generated_{}.{}", Utc::now().timestamp(), extension);
 
     debug!(
         "Decoded image: {} bytes, format: {}",
