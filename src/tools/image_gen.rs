@@ -99,12 +99,12 @@ fn parse_data_url(data_url: &str) -> Result<(Vec<u8>, String)> {
     // Check for data URL prefix
     let data_url = data_url
         .strip_prefix("data:")
-        .ok_or_else(|| BotError::ToolExecution("Invalid data URL format".to_string()))?;
+        .ok_or_else(|| BotError::ToolExecution("Invalid data URL format".into()))?;
 
     // Split mime type and data
     let (mime_and_encoding, base64_data) = data_url
         .split_once(',')
-        .ok_or_else(|| BotError::ToolExecution("Invalid data URL: missing data".to_string()))?;
+        .ok_or_else(|| BotError::ToolExecution("Invalid data URL: missing data".into()))?;
 
     // Extract file extension from mime type (e.g., "image/png;base64" -> "png")
     let extension = mime_and_encoding
@@ -115,9 +115,7 @@ fn parse_data_url(data_url: &str) -> Result<(Vec<u8>, String)> {
         .to_string();
 
     // Decode base64 data
-    let bytes = BASE64
-        .decode(base64_data)
-        .map_err(|e| BotError::ToolExecution(format!("Failed to decode image: {}", e)))?;
+    let bytes = BASE64.decode(base64_data)?;
 
     Ok((bytes, extension))
 }
@@ -167,7 +165,7 @@ pub async fn generate_image(arguments: &str, api_key: &str) -> Result<ToolOutput
             role: "user",
             content: args.prompt.clone(),
         }],
-        modalities: vec!["image".to_string(), "text".to_string()],
+        modalities: vec!["image".to_string()],
         image_config,
     };
 
@@ -193,7 +191,7 @@ pub async fn generate_image(arguments: &str, api_key: &str) -> Result<ToolOutput
         .first()
         .and_then(|c| c.message.images.first())
         .map(|img| img.image_url.url.clone())
-        .ok_or_else(|| BotError::OpenRouterResponse("No image generated".to_string()))?;
+        .ok_or_else(|| BotError::OpenRouterResponse("No image generated".into()))?;
 
     debug!("Image generation completed, decoding base64 data");
 

@@ -57,9 +57,7 @@ pub async fn get_user_info(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resul
         args.username, args.user_id
     );
 
-    let guild_id = tool_ctx
-        .guild_id
-        .ok_or_else(|| BotError::ToolExecution("Not in a server (DM context)".to_string()))?;
+    let guild_id = tool_ctx.guild_id.ok_or(BotError::NotInServer)?;
 
     let member = match (&args.user_id, &args.username) {
         (Some(id_str), _) => {

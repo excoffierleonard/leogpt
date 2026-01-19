@@ -37,9 +37,7 @@ pub async fn get_server_info(arguments: &str, tool_ctx: &ToolContext<'_>) -> Res
 
     debug!("Looking up server info");
 
-    let guild_id = tool_ctx
-        .guild_id
-        .ok_or_else(|| BotError::ToolExecution("Not in a server (DM context)".to_string()))?;
+    let guild_id = tool_ctx.guild_id.ok_or(BotError::NotInServer)?;
 
     // Get guild from cache for most data
     // Extract all values before any .await to avoid Send issues with CacheRef
@@ -59,7 +57,7 @@ pub async fn get_server_info(arguments: &str, tool_ctx: &ToolContext<'_>) -> Res
             .ctx
             .cache
             .guild(guild_id)
-            .ok_or_else(|| BotError::ToolExecution("Server not found in cache".to_string()))?;
+            .ok_or_else(|| BotError::ToolExecution("Server not found in cache".into()))?;
 
         (
             guild.name.clone(),
