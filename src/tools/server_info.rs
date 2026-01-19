@@ -81,7 +81,7 @@ pub async fn get_server_info(arguments: &str, tool_ctx: &ToolContext<'_>) -> Res
         .user
         .global_name
         .clone()
-        .unwrap_or_else(|| owner.user.name.clone());
+        .unwrap_or(owner.user.name.clone());
 
     let result = ServerInfoResult {
         name,
