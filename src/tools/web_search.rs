@@ -7,6 +7,9 @@ use crate::error::{BotError, Result};
 
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
+/// Model for web search requests.
+const WEB_SEARCH_MODEL: &str = "google/gemini-2.5-flash-lite";
+
 /// Arguments for the web_search tool
 #[derive(Debug, Deserialize)]
 struct WebSearchArgs {
@@ -50,17 +53,12 @@ struct ResponseMessage {
 ///
 /// Makes a request to OpenRouter with the `:online` suffix appended to the model,
 /// which enables web search for that request.
-pub async fn web_search(arguments: &str, api_key: &str, model: &str) -> Result<String> {
+pub async fn web_search(arguments: &str, api_key: &str) -> Result<String> {
     let args: WebSearchArgs = serde_json::from_str(arguments)?;
 
     debug!("Performing web search for: {}", args.query);
 
-    // Append :online to model if not already present
-    let online_model = if model.contains(":online") {
-        model.to_string()
-    } else {
-        format!("{}:online", model)
-    };
+    let online_model = format!("{}:online", WEB_SEARCH_MODEL);
 
     let request = WebSearchRequest {
         model: online_model,

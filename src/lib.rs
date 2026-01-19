@@ -29,7 +29,6 @@ type EventResult = std::result::Result<(), Box<dyn StdError + Send + Sync>>;
 struct Data {
     openrouter_client: OpenRouterClient,
     openrouter_api_key: String,
-    openrouter_model: String,
 }
 
 pub async fn run() -> Result<()> {
@@ -37,11 +36,7 @@ pub async fn run() -> Result<()> {
     let config = Config::from_env()?;
 
     debug!("Initializing OpenRouter client");
-    let openrouter_client = OpenRouterClient::new(
-        config.openrouter_api_key.clone(),
-        config.openrouter_model.clone(),
-        config.system_prompt.clone(),
-    );
+    let openrouter_client = OpenRouterClient::new(config.openrouter_api_key.clone());
 
     debug!("Setting up gateway intents");
     let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
@@ -49,7 +44,6 @@ pub async fn run() -> Result<()> {
     // Extract values before moving config into closure
     let discord_token = config.discord_token.clone();
     let api_key = config.openrouter_api_key.clone();
-    let model = config.openrouter_model.clone();
 
     debug!("Building framework");
     let framework = Framework::builder()
@@ -66,7 +60,6 @@ pub async fn run() -> Result<()> {
                 Ok(Data {
                     openrouter_client,
                     openrouter_api_key: api_key,
-                    openrouter_model: model,
                 })
             })
         })
@@ -225,8 +218,8 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
         // Build dynamic context for the system prompt
         let dynamic_context = build_dynamic_context(new_message);
 
-        // Get tool definitions (conditional based on model)
-        let tools = Some(get_tool_definitions(&data.openrouter_model));
+        // Get tool definitions
+        let tools = Some(get_tool_definitions());
 
         // Tool execution context
         let tool_ctx = ToolContext {
@@ -234,7 +227,6 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
             channel_id: new_message.channel_id,
             guild_id: new_message.guild_id,
             openrouter_api_key: &data.openrouter_api_key,
-            openrouter_model: &data.openrouter_model,
         };
 
         // Tool loop

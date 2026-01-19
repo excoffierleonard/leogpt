@@ -18,8 +18,6 @@ Create a `.env` file:
 ```env
 DISCORD_TOKEN=your_discord_bot_token
 OPENROUTER_API_KEY=your_openrouter_api_key
-OPENROUTER_MODEL=google/gemini-3-flash-preview
-SYSTEM_PROMPT=You are a helpful assistant.
 ```
 
 ### Run with Docker

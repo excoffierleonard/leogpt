@@ -13,6 +13,12 @@ const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions"
 // Using 512 tokens to be safe
 const MAX_TOKENS: u32 = 512;
 
+/// Model for chat completions.
+const COMPLETION_MODEL: &str = "google/gemini-3-flash-preview";
+
+/// The system prompt for the assistant.
+const SYSTEM_PROMPT: &str = "You are a helpful assistant.";
+
 /// Request payload for the OpenRouter API.
 #[derive(Debug, Serialize)]
 struct OpenRouterRequest {
@@ -137,18 +143,14 @@ struct Choice {
 pub struct OpenRouterClient {
     api_key: String,
     client: reqwest::Client,
-    model: String,
-    system_prompt: String,
 }
 
 impl OpenRouterClient {
     /// Create a new OpenRouter client.
-    pub fn new(api_key: String, model: String, system_prompt: String) -> Self {
+    pub fn new(api_key: String) -> Self {
         Self {
             api_key,
             client: reqwest::Client::new(),
-            model,
-            system_prompt,
         }
     }
 
@@ -166,9 +168,9 @@ impl OpenRouterClient {
 
         // Build the full system prompt with dynamic context
         let full_system_prompt = if let Some(context) = dynamic_context {
-            format!("{}\n\n{}", context, self.system_prompt)
+            format!("{}\n\n{}", context, SYSTEM_PROMPT)
         } else {
-            self.system_prompt.clone()
+            SYSTEM_PROMPT.to_string()
         };
 
         // Ensure system prompt is at the beginning
@@ -185,7 +187,7 @@ impl OpenRouterClient {
         }
 
         let request = OpenRouterRequest {
-            model: self.model.clone(),
+            model: COMPLETION_MODEL.to_string(),
             messages,
             max_tokens: MAX_TOKENS,
             tools,
