@@ -8,12 +8,15 @@ use crate::error::{BotError, Result};
 use super::search::search_channel_history;
 use super::server_info::get_server_info;
 use super::user_info::get_user_info;
+use super::web_search::web_search;
 
-/// Context needed to execute Discord-native tools
+/// Context needed to execute tools
 pub struct ToolContext<'a> {
     pub ctx: &'a Context,
     pub channel_id: ChannelId,
     pub guild_id: Option<GuildId>,
+    pub openrouter_api_key: &'a str,
+    pub openrouter_model: &'a str,
 }
 
 /// Executor for Discord-native tools
@@ -32,6 +35,14 @@ impl ToolExecutor {
             "search_channel_history" => search_channel_history(arguments, tool_ctx).await,
             "get_user_info" => get_user_info(arguments, tool_ctx).await,
             "get_server_info" => get_server_info(arguments, tool_ctx).await,
+            "web_search" => {
+                web_search(
+                    arguments,
+                    tool_ctx.openrouter_api_key,
+                    tool_ctx.openrouter_model,
+                )
+                .await
+            }
             _ => {
                 warn!("Unknown tool requested: {}", name);
                 Err(BotError::ToolExecution(format!("Unknown tool: {}", name)))

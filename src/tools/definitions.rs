@@ -8,8 +8,11 @@ use crate::openrouter::{FunctionDefinition, Tool};
 ///
 /// These definitions describe the available Discord-native tools
 /// that the LLM can invoke during a conversation.
-pub fn get_tool_definitions() -> Vec<Tool> {
-    vec![
+///
+/// If the model already has `:online` suffix, web_search is not included
+/// since web search is already enabled for all requests.
+pub fn get_tool_definitions(model: &str) -> Vec<Tool> {
+    let mut tools = vec![
         Tool {
             tool_type: "function".to_string(),
             function: FunctionDefinition {
@@ -76,5 +79,31 @@ pub fn get_tool_definitions() -> Vec<Tool> {
                 }),
             },
         },
-    ]
+    ];
+
+    // Only add web_search if model doesn't already have :online
+    if !model.contains(":online") {
+        tools.push(Tool {
+            tool_type: "function".to_string(),
+            function: FunctionDefinition {
+                name: "web_search".to_string(),
+                description: "Search the web for current information, news, or facts. \
+                    Use when the user asks about recent events or topics that may have \
+                    changed since your knowledge cutoff."
+                    .to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The search query"
+                        }
+                    },
+                    "required": ["query"]
+                }),
+            },
+        });
+    }
+
+    tools
 }
