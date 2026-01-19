@@ -7,6 +7,7 @@ pub enum MessageRole {
     User,
     Assistant,
     System,
+    Tool,
 }
 
 /// Supported media types for attachments

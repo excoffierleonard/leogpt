@@ -23,6 +23,12 @@ pub enum BotError {
 
     #[error("HTTP request error: {0}")]
     Reqwest(#[from] reqwest::Error),
+
+    #[error("Tool execution error: {0}")]
+    ToolExecution(String),
+
+    #[error("Tool loop limit exceeded")]
+    ToolLoopLimit,
 }
 
 impl From<poise::serenity_prelude::Error> for BotError {
@@ -68,6 +74,12 @@ impl BotError {
             }
             BotError::Reqwest(_) => {
                 "Sorry, I'm having network issues. Please try again in a moment.".to_string()
+            }
+            BotError::ToolExecution(_) => {
+                "Sorry, I encountered an error while trying to look up information. Please try again.".to_string()
+            }
+            BotError::ToolLoopLimit => {
+                "Sorry, I got stuck in a loop. Please try rephrasing your request.".to_string()
             }
         }
     }

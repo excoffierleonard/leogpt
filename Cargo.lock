@@ -890,6 +890,8 @@ dependencies = [
  "poise",
  "reqwest",
  "serde",
+ "serde_json",
+ "strsim",
  "thiserror 2.0.18",
  "tokio",
 ]
