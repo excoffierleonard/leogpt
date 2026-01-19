@@ -27,6 +27,22 @@ use types::MessageRole;
 
 type EventResult = std::result::Result<(), Box<dyn StdError + Send + Sync>>;
 
+/// Extract image URLs from conversation history (most recent first)
+fn extract_image_urls(messages: &[Message]) -> Vec<String> {
+    let mut urls = Vec::new();
+    // Iterate in reverse to get most recent first
+    for message in messages.iter().rev() {
+        if let Some(MessageContent::MultiPart(parts)) = &message.content {
+            for part in parts {
+                if let ContentPart::ImageUrl { image_url } = part {
+                    urls.push(image_url.url.clone());
+                }
+            }
+        }
+    }
+    urls
+}
+
 struct Data {
     openrouter_client: OpenRouterClient,
     openrouter_api_key: String,
@@ -220,12 +236,20 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
         // Get tool definitions
         let tools = Some(get_tool_definitions());
 
+        // Extract image URLs from conversation for tool context
+        let recent_images = extract_image_urls(&conversation_history);
+        debug!(
+            "Found {} images in conversation history",
+            recent_images.len()
+        );
+
         // Tool execution context
         let tool_ctx = ToolContext {
             ctx,
             channel_id: new_message.channel_id,
             guild_id: new_message.guild_id,
             openrouter_api_key: &data.openrouter_api_key,
+            recent_images,
         };
 
         // Collect images generated during tool execution

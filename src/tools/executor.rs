@@ -17,6 +17,8 @@ pub struct ToolContext<'a> {
     pub channel_id: ChannelId,
     pub guild_id: Option<GuildId>,
     pub openrouter_api_key: &'a str,
+    /// Image URLs from the conversation history (most recent first)
+    pub recent_images: Vec<String>,
 }
 
 /// Image attachment data to be sent to Discord
@@ -75,7 +77,7 @@ impl ToolExecutor {
             "web_search" => web_search(arguments, tool_ctx.openrouter_api_key)
                 .await
                 .map(ToolOutput::text),
-            "generate_image" => generate_image(arguments, tool_ctx.openrouter_api_key).await,
+            "generate_image" => generate_image(arguments, tool_ctx).await,
             _ => {
                 warn!("Unknown tool requested: {}", name);
                 Err(BotError::ToolExecution(format!("Unknown tool: {}", name)))

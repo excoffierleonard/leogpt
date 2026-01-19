@@ -100,16 +100,16 @@ pub fn get_tool_definitions() -> Vec<Tool> {
             tool_type: "function".to_string(),
             function: FunctionDefinition {
                 name: "generate_image".to_string(),
-                description: "Generate an image from a text description. Creates images \
-                    using AI based on the provided prompt. Supports custom aspect ratios \
-                    and resolutions."
+                description: "Generate or edit images using AI. Creates new images from text \
+                    descriptions, or edits images from the conversation if the prompt requests \
+                    modifications. The model automatically sees recent images from the conversation."
                     .to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
                         "prompt": {
                             "type": "string",
-                            "description": "Detailed description of the image to generate"
+                            "description": "Description of image to generate, or editing instructions (e.g., 'make it purple', 'add a hat')"
                         },
                         "aspect_ratio": {
                             "type": "string",

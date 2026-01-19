@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{BotError, Result};
 
-use super::executor::ToolOutput;
+use super::executor::{ToolContext, ToolOutput};
 
 /// OpenRouter chat completions API URL
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
@@ -36,7 +36,29 @@ struct ImageGenRequest {
 #[derive(Debug, Serialize)]
 struct RequestMessage {
     role: &'static str,
-    content: String,
+    content: MessageContent,
+}
+
+/// Content can be text or multipart (for image editing)
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+enum MessageContent {
+    Text(String),
+    MultiPart(Vec<ContentPart>),
+}
+
+/// A part of multipart content
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum ContentPart {
+    Text { text: String },
+    ImageUrl { image_url: ImageUrlInput },
+}
+
+/// Image URL input for editing
+#[derive(Debug, Serialize)]
+struct ImageUrlInput {
+    url: String,
 }
 
 /// Image configuration for Gemini models
@@ -124,10 +146,14 @@ fn parse_data_url(data_url: &str) -> Result<(Vec<u8>, String)> {
 ///
 /// Makes a request to OpenRouter with the `modalities: ["image", "text"]` parameter
 /// to enable image generation from the Gemini model.
-pub async fn generate_image(arguments: &str, api_key: &str) -> Result<ToolOutput> {
+pub async fn generate_image(arguments: &str, tool_ctx: &ToolContext<'_>) -> Result<ToolOutput> {
     let args: ImageGenArgs = serde_json::from_str(arguments)?;
 
-    debug!("Generating image with prompt: {}", args.prompt);
+    debug!(
+        "Image generation with prompt: '{}', {} context images available",
+        args.prompt,
+        tool_ctx.recent_images.len()
+    );
 
     // Build image config if any options are provided
     let image_config = if args.aspect_ratio.is_some() || args.size.is_some() {
@@ -159,11 +185,29 @@ pub async fn generate_image(arguments: &str, api_key: &str) -> Result<ToolOutput
         None
     };
 
+    // Build message content - include context images if available
+    let content = if tool_ctx.recent_images.is_empty() {
+        MessageContent::Text(args.prompt.clone())
+    } else {
+        // Include all recent images as context, then the prompt
+        let mut parts: Vec<ContentPart> = tool_ctx
+            .recent_images
+            .iter()
+            .map(|url| ContentPart::ImageUrl {
+                image_url: ImageUrlInput { url: url.clone() },
+            })
+            .collect();
+        parts.push(ContentPart::Text {
+            text: args.prompt.clone(),
+        });
+        MessageContent::MultiPart(parts)
+    };
+
     let request = ImageGenRequest {
         model: IMAGE_GEN_MODEL.to_string(),
         messages: vec![RequestMessage {
             role: "user",
-            content: args.prompt.clone(),
+            content,
         }],
         modalities: vec!["image".to_string()],
         image_config,
@@ -172,7 +216,7 @@ pub async fn generate_image(arguments: &str, api_key: &str) -> Result<ToolOutput
     let client = reqwest::Client::new();
     let response = client
         .post(OPENROUTER_API_URL)
-        .bearer_auth(api_key)
+        .bearer_auth(tool_ctx.openrouter_api_key)
         .header("Content-Type", "application/json")
         .json(&request)
         .send()
