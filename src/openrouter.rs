@@ -2,6 +2,7 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{BotError, Result};
+use crate::types::MessageRole;
 
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -58,7 +59,7 @@ pub struct AudioData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
-    pub role: String,
+    pub role: MessageRole,
     pub content: MessageContent,
 }
 
@@ -107,11 +108,11 @@ impl OpenRouterClient {
         };
 
         // Ensure system prompt is at the beginning
-        if messages.is_empty() || messages[0].role != "system" {
+        if messages.is_empty() || messages[0].role != MessageRole::System {
             messages.insert(
                 0,
                 Message {
-                    role: "system".to_string(),
+                    role: MessageRole::System,
                     content: MessageContent::Text(full_system_prompt),
                 },
             );
@@ -137,7 +138,7 @@ impl OpenRouterClient {
             let message = response
                 .text()
                 .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
+                .unwrap_or_else(|e| format!("Failed to read error response: {}", e));
             return Err(BotError::OpenRouterApi { status, message });
         }
 

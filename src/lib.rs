@@ -1,23 +1,24 @@
 pub mod config;
 pub mod error;
+pub mod media;
 pub mod openrouter;
+pub mod types;
 
 use std::error::Error as StdError;
 
-use base64::Engine;
 use chrono::Utc;
 use config::Config;
 use error::Result;
-use log::{debug, info};
-use openrouter::{
-    AudioData, ContentPart, File, ImageUrl, Message, MessageContent, OpenRouterClient, VideoUrl,
-};
+use log::{debug, info, warn};
+use media::{has_supported_media, process_attachments};
+use openrouter::{ContentPart, Message, MessageContent, OpenRouterClient};
 use poise::{
     Framework, FrameworkOptions, builtins,
     serenity_prelude::{
         ClientBuilder, Context, FullEvent, GatewayIntents, Message as SerenityMessage, UserId,
     },
 };
+use types::MessageRole;
 
 type EventResult = std::result::Result<(), Box<dyn StdError + Send + Sync>>;
 
@@ -68,21 +69,11 @@ pub async fn run() -> Result<()> {
 }
 
 /// Converts a Discord message into an OpenRouter Message, including any media attachments
-async fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str) -> Message {
-    let has_media = !discord_msg.attachments.is_empty()
-        && discord_msg.attachments.iter().any(|a| {
-            a.content_type
-                .as_ref()
-                .map(|ct| {
-                    ct.starts_with("image/")
-                        || ct.starts_with("video/")
-                        || ct.starts_with("audio/")
-                        || ct == "application/pdf"
-                })
-                .unwrap_or(false)
-        });
-
-    let content = if has_media {
+async fn message_to_openrouter_message(
+    discord_msg: &SerenityMessage,
+    role: MessageRole,
+) -> Message {
+    let content = if has_supported_media(&discord_msg.attachments) {
         let mut parts = Vec::new();
 
         // Add text first (OpenRouter recommends text before media)
@@ -93,69 +84,14 @@ async fn message_to_openrouter_message(discord_msg: &SerenityMessage, role: &str
         }
 
         // Add media attachments
-        for attachment in &discord_msg.attachments {
-            if let Some(content_type) = &attachment.content_type {
-                if content_type.starts_with("image/") {
-                    debug!("Adding image attachment: {}", attachment.filename);
-                    parts.push(ContentPart::ImageUrl {
-                        image_url: ImageUrl {
-                            url: attachment.url.clone(),
-                        },
-                    });
-                } else if content_type.starts_with("video/") {
-                    debug!("Adding video attachment: {}", attachment.filename);
-                    parts.push(ContentPart::VideoUrl {
-                        video_url: VideoUrl {
-                            url: attachment.url.clone(),
-                        },
-                    });
-                } else if content_type.starts_with("audio/") {
-                    debug!("Fetching audio attachment: {}", attachment.filename);
-                    // Fetch audio data and convert to base64
-                    if let Ok(response) = reqwest::get(&attachment.url).await
-                        && let Ok(audio_bytes) = response.bytes().await
-                    {
-                        debug!("Adding audio attachment ({} bytes)", audio_bytes.len());
-                        let audio_base64 =
-                            base64::engine::general_purpose::STANDARD.encode(&audio_bytes);
-
-                        // Extract format from MIME type (e.g., "audio/mpeg" -> "mp3")
-                        let format = content_type
-                            .trim_start_matches("audio/")
-                            .trim_start_matches("x-")
-                            .replace("mpeg", "mp3");
-                        debug!("Audio format: {} -> {}", content_type, format);
-
-                        parts.push(ContentPart::InputAudio {
-                            input_audio: AudioData {
-                                data: audio_base64,
-                                format: format.to_string(),
-                            },
-                        });
-                    } else {
-                        log::warn!("Failed to fetch audio attachment: {}", attachment.filename);
-                    }
-                } else if content_type == "application/pdf" {
-                    debug!("Adding PDF attachment: {}", attachment.filename);
-                    parts.push(ContentPart::File {
-                        file: File {
-                            filename: attachment.filename.clone(),
-                            file_data: attachment.url.clone(),
-                        },
-                    });
-                }
-            }
-        }
+        parts.extend(process_attachments(&discord_msg.attachments).await);
 
         MessageContent::MultiPart(parts)
     } else {
         MessageContent::Text(discord_msg.content.clone())
     };
 
-    Message {
-        role: role.to_string(),
-        content,
-    }
+    Message { role, content }
 }
 
 /// Builds conversation history by walking up the Discord reply chain
@@ -171,9 +107,9 @@ async fn build_conversation_history(
     while let Some(ref_msg) = &current_message.referenced_message {
         // Add the referenced message to history (we'll reverse later)
         let role = if ref_msg.author.id == bot_user_id {
-            "assistant"
+            MessageRole::Assistant
         } else {
-            "user"
+            MessageRole::User
         };
 
         history.push(message_to_openrouter_message(ref_msg, role).await);
@@ -183,7 +119,10 @@ async fn build_conversation_history(
             Ok(msg) => {
                 current_message = msg;
             }
-            Err(_) => break, // Can't fetch more, stop here
+            Err(e) => {
+                warn!("Failed to fetch message in reply chain: {}", e);
+                break;
+            }
         }
     }
 
@@ -246,7 +185,8 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
             build_conversation_history(ctx, new_message, bot_user_id).await;
 
         // Add current user message
-        conversation_history.push(message_to_openrouter_message(new_message, "user").await);
+        conversation_history
+            .push(message_to_openrouter_message(new_message, MessageRole::User).await);
 
         debug!(
             "Conversation history has {} messages",
