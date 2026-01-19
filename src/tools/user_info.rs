@@ -21,6 +21,8 @@ struct UserInfoArgs {
 /// User information returned by the tool
 #[derive(Debug, Serialize)]
 struct UserInfoResult {
+    user_id: String,
+    mention: String,
     username: String,
     display_name: Option<String>,
     avatar_url: Option<String>,
@@ -99,7 +101,10 @@ pub async fn get_user_info(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resul
         None => vec![],
     };
 
+    let user_id = member.user.id.to_string();
     let result = UserInfoResult {
+        user_id: user_id.clone(),
+        mention: format!("<@{}>", user_id),
         username: member.user.name.clone(),
         display_name: member.user.global_name.clone(),
         avatar_url: member.user.avatar_url(),
