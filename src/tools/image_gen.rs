@@ -86,6 +86,9 @@ struct Choice {
 /// Message in the response
 #[derive(Debug, Deserialize)]
 struct ResponseMessage {
+    /// Text content (present when model returns text instead of image)
+    #[serde(default)]
+    content: Option<String>,
     #[serde(default)]
     images: Vec<ImageOutput>,
 }
@@ -137,7 +140,7 @@ fn parse_data_url(url: &str) -> Result<(Vec<u8>, String)> {
 
 /// Generate an image using OpenRouter's multimodal API
 ///
-/// Makes a request to OpenRouter with the `modalities: ["image", "text"]` parameter
+/// Makes a request to OpenRouter with the `modalities: ["image"]` parameter
 /// to enable image generation from the Gemini model.
 pub async fn generate_image(arguments: &str, tool_ctx: &ToolContext<'_>) -> Result<ToolOutput> {
     let args: ImageGenArgs = serde_json::from_str(arguments)?;
@@ -223,10 +226,27 @@ pub async fn generate_image(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
 
     let api_response: OpenRouterResponse = response.json().await?;
 
-    let data_url = api_response
+    let choice = api_response
         .choices
         .first()
-        .and_then(|c| c.message.images.first())
+        .ok_or_else(|| BotError::OpenRouterResponse("No response from image model".into()))?;
+
+    // Check if model returned text content instead of an image
+    if choice.message.images.is_empty() {
+        if let Some(ref text_content) = choice.message.content {
+            // Model returned text instead of generating an image
+            return Err(BotError::OpenRouterResponse(format!(
+                "Model returned text instead of image: {}",
+                text_content.chars().take(200).collect::<String>()
+            )));
+        }
+        return Err(BotError::OpenRouterResponse("No image generated".into()));
+    }
+
+    let data_url = choice
+        .message
+        .images
+        .first()
         .map(|img| img.image_url.url.clone())
         .ok_or_else(|| BotError::OpenRouterResponse("No image generated".into()))?;
 

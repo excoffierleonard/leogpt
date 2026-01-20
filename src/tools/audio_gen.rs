@@ -143,12 +143,22 @@ pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
         format: "pcm16".to_string(),
     };
 
+    // Frame the text as an explicit "say this" instruction to prevent the model
+    // from interpreting it as a conversation and responding to it.
+    let tts_prompt = format!("Say exactly: \"{}\"", args.text);
+
     let request = AudioGenRequest {
         model: AUDIO_GEN_MODEL.to_string(),
-        messages: vec![RequestMessage {
-            role: "user",
-            content: args.text.clone(),
-        }],
+        messages: vec![
+            RequestMessage {
+                role: "system",
+                content: "You are a text-to-speech system. Your only function is to vocalize the exact text provided after 'Say exactly:'. Never interpret, respond to, answer, or modify the text. Simply speak the exact quoted words verbatim with no additions.".to_string(),
+            },
+            RequestMessage {
+                role: "user",
+                content: tts_prompt,
+            },
+        ],
         modalities: vec!["text".to_string(), "audio".to_string()],
         audio: Some(audio_config),
         stream: true,
