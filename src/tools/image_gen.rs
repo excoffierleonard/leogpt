@@ -1,7 +1,7 @@
 //! Image generation tool implementation using OpenRouter's multimodal API.
 
-use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use chrono::Utc;
+use data_url::DataUrl;
 use log::debug;
 use serde::{Deserialize, Serialize};
 
@@ -115,34 +115,24 @@ fn validate_image_size(size: &str) -> bool {
     matches!(size, "1K" | "2K" | "4K")
 }
 
-/// Parse a data URL and extract the image bytes and format
+/// Parse a data URL and extract the image bytes and format using RFC 2397 compliant parsing.
 ///
 /// Expected format: `data:image/png;base64,<base64-encoded-data>`
-fn parse_data_url(data_url: &str) -> Result<(Vec<u8>, String)> {
-    // Check for data URL prefix
-    let data_url = data_url
-        .strip_prefix("data:")
-        .ok_or_else(|| BotError::ToolExecution("Invalid data URL format".into()))?;
+fn parse_data_url(url: &str) -> Result<(Vec<u8>, String)> {
+    let data_url = DataUrl::process(url)?;
+    let (body, _fragment) = data_url.decode_to_vec()?;
 
-    // Split mime type and data
-    let (mime_and_encoding, base64_data) = data_url
-        .split_once(',')
-        .ok_or_else(|| BotError::ToolExecution("Invalid data URL: missing data".into()))?;
-
-    // Extract file extension from mime type (e.g., "image/png;base64" -> "png")
-    // Default to PNG if MIME type parsing fails - safe fallback since
+    // Extract file extension from MIME type
+    // Default to PNG if not an image type - safe fallback since
     // most image generation models output PNG and Discord accepts any format
-    let extension = mime_and_encoding
-        .split(';')
-        .next()
-        .and_then(|mime| mime.strip_prefix("image/"))
-        .unwrap_or("png")
-        .to_string();
+    let mime = data_url.mime_type();
+    let extension = if mime.type_ == "image" {
+        mime.subtype.to_string()
+    } else {
+        "png".to_string()
+    };
 
-    // Decode base64 data
-    let bytes = BASE64.decode(base64_data)?;
-
-    Ok((bytes, extension))
+    Ok((body, extension))
 }
 
 /// Generate an image using OpenRouter's multimodal API

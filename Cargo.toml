@@ -6,13 +6,18 @@ edition = "2024"
 [dependencies]
 base64 = "0.22.1"
 chrono = "0.4.43"
+data-url = "0.3.2"
 dotenvy = "0.15.7"
 env_logger = "0.11.8"
+eventsource-stream = "0.2.3"
+futures = "0.3.31"
+hound = "3.5.1"
 log = "0.4.29"
 poise = "0.6.1"
 reqwest = { version = "0.12.28", default-features = false, features = [
     "json",
     "rustls-tls",
+    "stream",
 ] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"

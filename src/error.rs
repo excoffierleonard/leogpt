@@ -35,6 +35,18 @@ pub enum BotError {
     #[error("Base64 decode error: {0}")]
     Base64Decode(#[from] base64::DecodeError),
 
+    #[error("WAV encoding error: {0}")]
+    Wav(#[from] hound::Error),
+
+    #[error("Data URL error: {0}")]
+    DataUrl(#[from] data_url::DataUrlError),
+
+    #[error("Data URL base64 decode error: {0}")]
+    DataUrlBase64(#[from] data_url::forgiving_base64::InvalidBase64),
+
+    #[error("SSE stream error: {0}")]
+    EventSource(#[from] eventsource_stream::EventStreamError<reqwest::Error>),
+
     #[error("Tool execution error: {0}")]
     ToolExecution(String),
 
@@ -100,6 +112,15 @@ impl BotError {
             }
             BotError::Base64Decode(_) => {
                 "Sorry, I encountered an error processing image data. Please try again.".to_string()
+            }
+            BotError::Wav(_) => {
+                "Sorry, I encountered an error creating audio data. Please try again.".to_string()
+            }
+            BotError::DataUrl(_) | BotError::DataUrlBase64(_) => {
+                "Sorry, I encountered an error processing image data. Please try again.".to_string()
+            }
+            BotError::EventSource(_) => {
+                "Sorry, I encountered an error streaming audio data. Please try again.".to_string()
             }
             BotError::NotInServer => {
                 "Sorry, this command only works in a server, not in DMs.".to_string()

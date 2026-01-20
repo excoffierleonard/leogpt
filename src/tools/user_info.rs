@@ -7,9 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{BotError, Result};
 
 use super::executor::ToolContext;
-
-/// Minimum similarity threshold for fuzzy matching
-const FUZZY_THRESHOLD: f64 = 0.85;
+use super::utils::matches_username;
 
 /// Arguments for the get_user_info tool
 #[derive(Debug, Deserialize)]
@@ -29,20 +27,6 @@ struct UserInfoResult {
     joined_server: Option<String>,
     roles: Vec<String>,
     created_at: String,
-}
-
-/// Check if username matches using case-insensitive and fuzzy matching
-fn matches_username(name: &str, search: &str) -> bool {
-    let name_lower = name.to_lowercase();
-    let search_lower = search.to_lowercase();
-
-    // Check for exact substring match first
-    if name_lower.contains(&search_lower) {
-        return true;
-    }
-
-    // Fall back to fuzzy matching
-    strsim::jaro_winkler(&name_lower, &search_lower) > FUZZY_THRESHOLD
 }
 
 /// Get detailed information about a Discord user in a server
