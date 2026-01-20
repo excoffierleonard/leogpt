@@ -1,5 +1,6 @@
 //! Discord-native tools for the OpenRouter tool calling API
 
+mod audio_gen;
 mod definitions;
 mod executor;
 mod image_gen;
@@ -9,4 +10,4 @@ mod user_info;
 mod web_search;
 
 pub use definitions::get_tool_definitions;
-pub use executor::{ImageAttachment, ToolContext, ToolExecutor, ToolOutput};
+pub use executor::{AudioAttachment, ImageAttachment, ToolContext, ToolExecutor, ToolOutput};

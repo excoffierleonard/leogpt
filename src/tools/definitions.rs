@@ -124,5 +124,29 @@ pub fn get_tool_definitions() -> Vec<Tool> {
                 }),
             },
         },
+        Tool {
+            tool_type: "function".to_string(),
+            function: FunctionDefinition {
+                name: "generate_audio".to_string(),
+                description: "Generate spoken audio from text using text-to-speech. Converts \
+                    written text into natural-sounding speech that can be played back. Useful \
+                    for voice responses, narration, or reading text aloud."
+                    .to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "The text to convert to speech (max 4096 characters)"
+                        },
+                        "voice": {
+                            "type": "string",
+                            "description": "Voice to use: alloy (neutral), echo (male), fable (British), onyx (deep male), nova (female), shimmer (soft female). Default: alloy"
+                        }
+                    },
+                    "required": ["text"]
+                }),
+            },
+        },
     ]
 }
