@@ -1,7 +1,12 @@
 //! Audio generation (text-to-speech) tool implementation using OpenRouter API.
 
+use std::io::Cursor;
+
 use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::Utc;
+use eventsource_stream::Eventsource;
+use futures::StreamExt;
+use hound::{SampleFormat, WavSpec, WavWriter};
 use log::debug;
 use serde::{Deserialize, Serialize};
 
@@ -81,41 +86,28 @@ fn validate_voice(voice: &str) -> bool {
     VALID_VOICES.contains(&voice.to_lowercase().as_str())
 }
 
-/// Create a WAV file from raw PCM16 audio data
-/// OpenAI TTS outputs 24kHz mono 16-bit PCM
-fn create_wav_from_pcm16(pcm_data: &[u8]) -> Vec<u8> {
-    const SAMPLE_RATE: u32 = 24000;
-    const NUM_CHANNELS: u16 = 1;
-    const BITS_PER_SAMPLE: u16 = 16;
-    const BYTE_RATE: u32 = SAMPLE_RATE * NUM_CHANNELS as u32 * BITS_PER_SAMPLE as u32 / 8;
-    const BLOCK_ALIGN: u16 = NUM_CHANNELS * BITS_PER_SAMPLE / 8;
+/// Create a WAV file from raw PCM16 audio data using the hound crate.
+/// OpenAI TTS outputs 24kHz mono 16-bit PCM.
+fn create_wav_from_pcm16(pcm_data: &[u8]) -> Result<Vec<u8>> {
+    let spec = WavSpec {
+        channels: 1,
+        sample_rate: 24000,
+        bits_per_sample: 16,
+        sample_format: SampleFormat::Int,
+    };
 
-    let data_size = pcm_data.len() as u32;
-    let file_size = 36 + data_size;
+    let mut cursor = Cursor::new(Vec::with_capacity(44 + pcm_data.len()));
+    let mut writer = WavWriter::new(&mut cursor, spec)?;
 
-    let mut wav = Vec::with_capacity(44 + pcm_data.len());
+    // PCM16 data is little-endian i16 samples
+    for chunk in pcm_data.chunks_exact(2) {
+        let sample = i16::from_le_bytes([chunk[0], chunk[1]]);
+        writer.write_sample(sample)?;
+    }
 
-    // RIFF header
-    wav.extend_from_slice(b"RIFF");
-    wav.extend_from_slice(&file_size.to_le_bytes());
-    wav.extend_from_slice(b"WAVE");
+    writer.finalize()?;
 
-    // fmt subchunk
-    wav.extend_from_slice(b"fmt ");
-    wav.extend_from_slice(&16u32.to_le_bytes()); // Subchunk1Size (16 for PCM)
-    wav.extend_from_slice(&1u16.to_le_bytes()); // AudioFormat (1 = PCM)
-    wav.extend_from_slice(&NUM_CHANNELS.to_le_bytes());
-    wav.extend_from_slice(&SAMPLE_RATE.to_le_bytes());
-    wav.extend_from_slice(&BYTE_RATE.to_le_bytes());
-    wav.extend_from_slice(&BLOCK_ALIGN.to_le_bytes());
-    wav.extend_from_slice(&BITS_PER_SAMPLE.to_le_bytes());
-
-    // data subchunk
-    wav.extend_from_slice(b"data");
-    wav.extend_from_slice(&data_size.to_le_bytes());
-    wav.extend_from_slice(pcm_data);
-
-    wav
+    Ok(cursor.into_inner())
 }
 
 /// Generate audio from text using OpenRouter's multimodal API
@@ -177,25 +169,24 @@ pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
         return Err(BotError::OpenRouterApi { status, message });
     }
 
-    // Process streaming response - read full body and parse SSE events
-    let response_text = response.text().await?;
+    // Process streaming response using eventsource-stream for proper SSE parsing
+    let mut stream = response.bytes_stream().eventsource();
     let mut audio_data = String::new();
 
-    // Parse SSE lines
-    for line in response_text.lines() {
-        if let Some(data) = line.strip_prefix("data: ") {
-            if data == "[DONE]" {
-                continue;
-            }
+    while let Some(event) = stream.next().await {
+        let event = event?;
 
-            if let Ok(parsed) = serde_json::from_str::<StreamChunk>(data)
-                && let Some(choice) = parsed.choices.first()
-                && let Some(delta) = &choice.delta
-                && let Some(audio) = &delta.audio
-                && let Some(audio_chunk) = &audio.data
-            {
-                audio_data.push_str(audio_chunk);
-            }
+        if event.data == "[DONE]" {
+            break;
+        }
+
+        if let Ok(parsed) = serde_json::from_str::<StreamChunk>(&event.data)
+            && let Some(choice) = parsed.choices.first()
+            && let Some(delta) = &choice.delta
+            && let Some(audio) = &delta.audio
+            && let Some(audio_chunk) = &audio.data
+        {
+            audio_data.push_str(audio_chunk);
         }
     }
 
@@ -209,7 +200,7 @@ pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
     let pcm_bytes = STANDARD.decode(&audio_data)?;
 
     // Wrap PCM16 data in WAV container for Discord playback
-    let audio_bytes = create_wav_from_pcm16(&pcm_bytes);
+    let audio_bytes = create_wav_from_pcm16(&pcm_bytes)?;
     let filename = format!("audio_{}.wav", Utc::now().timestamp());
 
     debug!(

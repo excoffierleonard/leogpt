@@ -9,12 +9,10 @@ use serde::{Deserialize, Serialize};
 use crate::error::{BotError, Result};
 
 use super::executor::ToolContext;
+use super::utils::matches_username;
 
 /// Maximum messages Discord API returns per request
 const MAX_MESSAGES: u8 = 100;
-
-/// Minimum similarity threshold for fuzzy username matching
-const FUZZY_THRESHOLD: f64 = 0.85;
 
 /// OpenRouter embeddings API URL
 const EMBEDDINGS_URL: &str = "https://openrouter.ai/api/v1/embeddings";
@@ -58,20 +56,6 @@ struct EmbeddingResponse {
 struct EmbeddingData {
     embedding: Vec<f32>,
     index: usize,
-}
-
-/// Check if username matches using case-insensitive and fuzzy matching
-fn matches_username(author_name: &str, search_name: &str) -> bool {
-    let author_lower = author_name.to_lowercase();
-    let search_lower = search_name.to_lowercase();
-
-    // Check for exact substring match first
-    if author_lower.contains(&search_lower) {
-        return true;
-    }
-
-    // Fall back to fuzzy matching
-    strsim::jaro_winkler(&author_lower, &search_lower) > FUZZY_THRESHOLD
 }
 
 /// Compute cosine similarity between two vectors
