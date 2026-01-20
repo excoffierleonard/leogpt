@@ -43,8 +43,10 @@ pub fn get_tool_definitions() -> Vec<Tool> {
             function: FunctionDefinition {
                 name: "get_user_info".to_string(),
                 description:
-                    "Get detailed information about a Discord user in the current server, \
-                    including their user ID, mention string, roles, join date, and avatar."
+                    "Get detailed information about a Discord user in the current server. \
+                    Returns user ID, mention string (use this directly in your response to tag/ping the user), \
+                    roles, join date, and avatar. To mention the user, include the 'mention' field value \
+                    exactly as returned (e.g., <@123456789>) in your response text."
                         .to_string(),
                 parameters: json!({
                     "type": "object",

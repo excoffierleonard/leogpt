@@ -56,7 +56,9 @@ pub async fn run() -> Result<()> {
     let openrouter_client = OpenRouterClient::new(config.openrouter_api_key.clone());
 
     debug!("Setting up gateway intents");
-    let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
+    let intents = GatewayIntents::non_privileged()
+        | GatewayIntents::MESSAGE_CONTENT
+        | GatewayIntents::GUILD_MEMBERS;
 
     // Extract values before moving config into closure
     let discord_token = config.discord_token.clone();
@@ -192,6 +194,21 @@ fn build_dynamic_context(message: &SerenityMessage) -> String {
         context.push_str(&format!("\nServer ID: {}", guild_id));
     }
     context.push_str(&format!("\nChannel ID: {}", message.channel_id));
+
+    // Include mentioned users (so the model can use these IDs directly)
+    if !message.mentions.is_empty() {
+        context.push_str("\n\nUsers mentioned in this message:");
+        for mentioned in &message.mentions {
+            if mentioned.bot {
+                continue; // Skip bot mentions (including self)
+            }
+            let display = mentioned.global_name.as_ref().unwrap_or(&mentioned.name);
+            context.push_str(&format!(
+                "\n- {} (ID: {}, mention: <@{}>)",
+                display, mentioned.id, mentioned.id
+            ));
+        }
+    }
 
     context
 }
