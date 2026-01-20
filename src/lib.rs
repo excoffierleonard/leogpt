@@ -22,7 +22,7 @@ use poise::{
         Message as SerenityMessage, UserId,
     },
 };
-use tools::{ImageAttachment, ToolContext, ToolExecutor, get_tool_definitions};
+use tools::{AudioAttachment, ImageAttachment, ToolContext, ToolExecutor, get_tool_definitions};
 use types::MessageRole;
 
 type EventResult = std::result::Result<(), Box<dyn StdError + Send + Sync>>;
@@ -252,10 +252,11 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
             recent_images,
         };
 
-        // Collect images generated during tool execution
+        // Collect media generated during tool execution
         let mut generated_images: Vec<ImageAttachment> = Vec::new();
+        let mut generated_audio: Vec<AudioAttachment> = Vec::new();
 
-        // Tool loop - returns Some(text) for text response, None for image-only response
+        // Tool loop - returns Some(text) for text response, None for media-only response
         let mut iterations = 0;
         let result: std::result::Result<Option<String>, BotError> = loop {
             iterations += 1;
@@ -287,24 +288,28 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
 
                     // Execute each tool and add results
                     for tool_call in tool_calls {
-                        let (result_text, maybe_image) = match ToolExecutor::execute(
+                        let (result_text, maybe_image, maybe_audio) = match ToolExecutor::execute(
                             &tool_call.function.name,
                             &tool_call.function.arguments,
                             &tool_ctx,
                         )
                         .await
                         {
-                            Ok(output) => (output.text, output.image),
+                            Ok(output) => (output.text, output.image, output.audio),
                             Err(e) => {
                                 warn!("Tool execution failed: {}", e);
-                                (format!("Error: {}", e), None)
+                                (format!("Error: {}", e), None, None)
                             }
                         };
 
-                        // If an image was generated, collect it and exit the loop
-                        // to send just the image without further LLM processing
+                        // If media was generated, collect it and exit the loop
+                        // to send just the media without further LLM processing
                         if let Some(image) = maybe_image {
                             generated_images.push(image);
+                            break;
+                        }
+                        if let Some(audio) = maybe_audio {
+                            generated_audio.push(audio);
                             break;
                         }
 
@@ -317,8 +322,8 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
                         });
                     }
 
-                    // If we have images, exit the tool loop entirely
-                    if !generated_images.is_empty() {
+                    // If we have media, exit the tool loop entirely
+                    if !generated_images.is_empty() || !generated_audio.is_empty() {
                         break Ok(None);
                     }
                 }
@@ -328,9 +333,21 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
 
         match result {
             Ok(maybe_text) => {
-                // Send reply: text only, image only, or both
-                match (maybe_text, generated_images.is_empty()) {
-                    (Some(text), true) => {
+                // Combine all media attachments (images and audio)
+                let has_media = !generated_images.is_empty() || !generated_audio.is_empty();
+                let mut attachments: Vec<CreateAttachment> = generated_images
+                    .into_iter()
+                    .map(|img| CreateAttachment::bytes(img.data, img.filename))
+                    .collect();
+                attachments.extend(
+                    generated_audio
+                        .into_iter()
+                        .map(|aud| CreateAttachment::bytes(aud.data, aud.filename)),
+                );
+
+                // Send reply: text only, media only, or both
+                match (maybe_text, has_media) {
+                    (Some(text), false) => {
                         // Text only
                         new_message.reply(&ctx.http, &text).await?;
                         info!(
@@ -340,13 +357,8 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
                             text
                         );
                     }
-                    (None, false) => {
-                        // Image only
-                        let attachments: Vec<CreateAttachment> = generated_images
-                            .into_iter()
-                            .map(|img| CreateAttachment::bytes(img.data, img.filename))
-                            .collect();
-
+                    (None, true) => {
+                        // Media only
                         let message = CreateMessage::new()
                             .reference_message(new_message)
                             .add_files(attachments);
@@ -357,18 +369,13 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
                             .await?;
 
                         info!(
-                            "Replied to {} in channel {} with image",
+                            "Replied to {} in channel {} with media attachment",
                             new_message.author.tag(),
                             new_message.channel_id
                         );
                     }
-                    (Some(text), false) => {
-                        // Text + images
-                        let attachments: Vec<CreateAttachment> = generated_images
-                            .into_iter()
-                            .map(|img| CreateAttachment::bytes(img.data, img.filename))
-                            .collect();
-
+                    (Some(text), true) => {
+                        // Text + media
                         let message = CreateMessage::new()
                             .content(&text)
                             .reference_message(new_message)
@@ -380,14 +387,14 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
                             .await?;
 
                         info!(
-                            "Replied to {} in channel {}: {} (with image)",
+                            "Replied to {} in channel {}: {} (with media)",
                             new_message.author.tag(),
                             new_message.channel_id,
                             text
                         );
                     }
-                    (None, true) => {
-                        // No text and no images - shouldn't happen, but handle gracefully
+                    (None, false) => {
+                        // No text and no media - shouldn't happen, but handle gracefully
                         warn!("No response content generated");
                     }
                 }
