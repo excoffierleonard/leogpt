@@ -90,7 +90,15 @@ pub async fn run() -> Result<()> {
         .await?;
 
     info!("Starting Discord client");
-    client.start().await?;
+
+    tokio::select! {
+        result = client.start() => {
+            result?;
+        }
+        _ = tokio::signal::ctrl_c() => {
+            info!("Shutdown signal received, shutting down...");
+        }
+    }
 
     Ok(())
 }
