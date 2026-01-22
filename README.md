@@ -2,6 +2,8 @@
 
 A Discord bot that connects to AI models through OpenRouter. Mention the bot in any channel to chat with it.
 
+<img src="assets/icon.png" alt="LeoGPT icon" width="256">
+
 ## Features
 
 - Conversational AI via OpenRouter API
