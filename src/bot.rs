@@ -14,6 +14,7 @@ use poise::{
 
 use crate::config::Config;
 use crate::error::{BotError, Result};
+use crate::joke;
 use crate::media::{has_supported_media, process_attachments};
 use crate::openrouter::{ChatResult, ContentPart, Message, MessageContent, OpenRouterClient};
 use crate::tools::{
@@ -221,10 +222,20 @@ fn build_dynamic_context(message: &SerenityMessage) -> String {
 }
 
 async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventResult {
-    if let FullEvent::Message { new_message } = event
-        && new_message.mentions_user_id(ctx.cache.current_user().id)
-        && new_message.author.id != ctx.cache.current_user().id
-    {
+    if let FullEvent::Message { new_message } = event {
+        let bot_user_id = ctx.cache.current_user().id;
+        if new_message.author.id == bot_user_id {
+            return Ok(());
+        }
+
+        if handle_joke(ctx, new_message).await? {
+            return Ok(());
+        }
+
+        if !new_message.mentions_user_id(bot_user_id) {
+            return Ok(());
+        }
+
         info!(
             "Received message from {} in channel {}: {}",
             new_message.author.tag(),
@@ -236,8 +247,6 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
         if let Err(e) = new_message.channel_id.broadcast_typing(&ctx.http).await {
             debug!("Failed to broadcast typing indicator: {}", e);
         }
-
-        let bot_user_id = ctx.cache.current_user().id;
 
         // Build conversation history from reply chain
         let mut conversation_history =
@@ -434,4 +443,40 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
         }
     }
     Ok(())
+}
+
+/// Temporary joke handler. Remove this function + call site + `src/joke.rs` to delete the feature.
+async fn handle_joke(
+    ctx: &Context,
+    new_message: &SerenityMessage,
+) -> std::result::Result<bool, Box<dyn StdError + Send + Sync>> {
+    if joke::JOKE_ENABLED {
+        debug!(
+            "Joke check: msg from {} in channel {}: {}",
+            new_message.author.tag(),
+            new_message.channel_id,
+            new_message.content
+        );
+    }
+
+    if !joke::should_trigger_joke(new_message.author.id, &new_message.content) {
+        return Ok(false);
+    }
+
+    let message = CreateMessage::new()
+        .content(joke::JOKE_IMAGE_URL)
+        .reference_message(new_message);
+
+    new_message
+        .channel_id
+        .send_message(&ctx.http, message)
+        .await?;
+
+    info!(
+        "Sent joke response to {} in channel {}",
+        new_message.author.tag(),
+        new_message.channel_id
+    );
+
+    Ok(true)
 }
