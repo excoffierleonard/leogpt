@@ -3,6 +3,7 @@
 mod bot;
 pub mod config;
 pub mod error;
+mod joke;
 pub mod media;
 pub mod openrouter;
 pub mod tools;
