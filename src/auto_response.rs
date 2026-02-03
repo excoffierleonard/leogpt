@@ -1,4 +1,4 @@
-//! Configurable auto-response rules for matching user messages.
+//! Auto-response rules and matching utilities.
 
 mod rules;
 
@@ -9,11 +9,13 @@ use strsim::normalized_levenshtein;
 pub use rules::hardcoded_auto_responses;
 
 #[derive(Debug, Clone)]
+/// Matching strategy for auto-response patterns.
 pub enum MatchMode {
     Fuzzy,
 }
 
 #[derive(Debug, Clone)]
+/// Content matching configuration for a rule.
 pub struct ContentMatchConfig {
     pub patterns: Vec<String>,
     pub mode: MatchMode,
@@ -24,11 +26,13 @@ pub struct ContentMatchConfig {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
+/// Response configuration before resolving into sendable payloads.
 pub enum ResponseConfig {
     ImageUrl { url: String },
 }
 
 #[derive(Debug, Clone)]
+/// Raw rule configuration before resolving user IDs.
 pub struct AutoResponseRuleConfig {
     pub name: Option<String>,
     pub user_ids: Vec<u64>,
@@ -37,11 +41,13 @@ pub struct AutoResponseRuleConfig {
 }
 
 #[derive(Debug, Clone)]
+/// Response payload ready to be sent.
 pub enum AutoResponsePayload {
     ImageUrl(String),
 }
 
 #[derive(Debug, Clone)]
+/// Fully-resolved auto-response rule.
 pub struct AutoResponseRule {
     pub name: String,
     pub user_ids: Vec<UserId>,
@@ -50,11 +56,13 @@ pub struct AutoResponseRule {
 }
 
 #[derive(Debug, Clone)]
+/// Matched auto-response action.
 pub struct AutoResponseAction {
     pub rule_name: String,
     pub payload: AutoResponsePayload,
 }
 
+/// Returns the first matching auto-response action, if any.
 pub fn select_auto_response(
     rules: &[AutoResponseRule],
     user_id: UserId,
@@ -75,6 +83,7 @@ pub fn select_auto_response(
 }
 
 impl AutoResponseRuleConfig {
+    /// Convert a config entry into a resolved rule.
     pub fn into_rule(self, index: usize) -> AutoResponseRule {
         let name = self.name.unwrap_or_else(|| format!("rule-{}", index + 1));
 
@@ -98,6 +107,7 @@ impl AutoResponseRuleConfig {
 }
 
 impl ContentMatchConfig {
+    /// Returns true when content matches this config.
     pub fn matches(&self, content: &str) -> bool {
         let normalized = normalize(content);
         if normalized.is_empty() {
