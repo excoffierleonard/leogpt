@@ -9,6 +9,7 @@ use futures::StreamExt;
 use hound::{SampleFormat, WavSpec, WavWriter};
 use log::debug;
 use serde::{Deserialize, Serialize};
+use strum::{Display, EnumString, VariantNames};
 
 use crate::error::{BotError, Result};
 
@@ -20,8 +21,16 @@ const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions"
 /// Model for audio generation
 const AUDIO_GEN_MODEL: &str = "openai/gpt-audio-mini";
 
-/// Available voices for audio generation
-const VALID_VOICES: &[&str] = &["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+#[derive(Debug, Clone, Copy, EnumString, VariantNames, Display)]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
+enum AudioVoice {
+    Alloy,
+    Echo,
+    Fable,
+    Onyx,
+    Nova,
+    Shimmer,
+}
 
 /// Arguments for the generate_audio tool
 #[derive(Debug, Deserialize)]
@@ -81,11 +90,6 @@ struct AudioDelta {
     data: Option<String>,
 }
 
-/// Validate voice is one of the supported values
-fn validate_voice(voice: &str) -> bool {
-    VALID_VOICES.contains(&voice.to_lowercase().as_str())
-}
-
 /// Create a WAV file from raw PCM16 audio data using the hound crate.
 /// OpenAI TTS outputs 24kHz mono 16-bit PCM.
 fn create_wav_from_pcm16(pcm_data: &[u8]) -> Result<Vec<u8>> {
@@ -123,14 +127,16 @@ pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
     }
 
     // Validate and set voice (default: "alloy")
-    let voice = args.voice.unwrap_or_else(|| "alloy".to_string());
-    if !validate_voice(&voice) {
-        return Err(BotError::ToolExecution(format!(
-            "Invalid voice '{}'. Supported: {}",
-            voice,
-            VALID_VOICES.join(", ")
-        )));
-    }
+    let voice = match args.voice.as_deref() {
+        Some(raw) => raw.parse::<AudioVoice>().map_err(|_| {
+            BotError::ToolExecution(format!(
+                "Invalid voice '{}'. Supported: {}",
+                raw,
+                AudioVoice::VARIANTS.join(", ")
+            ))
+        })?,
+        None => AudioVoice::Alloy,
+    };
 
     debug!(
         "Audio generation with text length: {}, voice: {}",
@@ -139,7 +145,7 @@ pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
     );
 
     let audio_config = AudioConfig {
-        voice: voice.to_lowercase(),
+        voice: voice.to_string(),
         format: "pcm16".to_string(),
     };
 
