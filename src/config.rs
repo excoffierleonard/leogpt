@@ -15,6 +15,10 @@ pub struct Config {
 
 impl Config {
     /// Load configuration from environment variables.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if required environment variables are missing.
     pub fn from_env() -> Result<Self> {
         debug!("Loading configuration from environment");
         dotenvy::dotenv().ok();

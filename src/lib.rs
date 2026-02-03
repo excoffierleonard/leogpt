@@ -1,4 +1,4 @@
-//! LeoGPT - A Discord bot powered by OpenRouter AI.
+//! `LeoGPT` - A Discord bot powered by `OpenRouter` AI.
 
 mod auto_response;
 mod bot;

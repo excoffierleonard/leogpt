@@ -65,15 +65,13 @@ impl From<poise::serenity_prelude::Error> for BotError {
 
 impl BotError {
     /// Returns a user-friendly error message suitable for displaying in Discord
+    #[must_use]
     pub fn user_message(&self) -> String {
         match self {
             BotError::Serenity(_) => {
                 "Sorry, I'm having trouble communicating with Discord right now. Please try again later.".to_string()
             }
-            BotError::Config(_) => {
-                "Sorry, there's a configuration issue on my end. Please contact the bot administrator.".to_string()
-            }
-            BotError::EnvVar(_) => {
+            BotError::Config(_) | BotError::EnvVar(_) => {
                 "Sorry, there's a configuration issue on my end. Please contact the bot administrator.".to_string()
             }
             BotError::OpenRouterApi { status, .. } => {
@@ -110,14 +108,11 @@ impl BotError {
             BotError::ToolLoopLimit => {
                 "Sorry, I got stuck in a loop. Please try rephrasing your request.".to_string()
             }
-            BotError::Base64Decode(_) => {
+            BotError::Base64Decode(_) | BotError::DataUrl(_) | BotError::DataUrlBase64(_) => {
                 "Sorry, I encountered an error processing image data. Please try again.".to_string()
             }
             BotError::Wav(_) => {
                 "Sorry, I encountered an error creating audio data. Please try again.".to_string()
-            }
-            BotError::DataUrl(_) | BotError::DataUrlBase64(_) => {
-                "Sorry, I encountered an error processing image data. Please try again.".to_string()
             }
             BotError::EventSource(_) => {
                 "Sorry, I encountered an error streaming audio data. Please try again.".to_string()

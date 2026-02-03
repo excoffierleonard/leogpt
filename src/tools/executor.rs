@@ -50,6 +50,7 @@ pub struct ToolOutput {
 
 impl ToolOutput {
     /// Create a text-only output
+    #[must_use]
     pub fn text(text: String) -> Self {
         Self {
             text,
@@ -59,6 +60,7 @@ impl ToolOutput {
     }
 
     /// Create an output with both text and an image
+    #[must_use]
     pub fn with_image(text: String, data: Vec<u8>, filename: String) -> Self {
         Self {
             text,
@@ -68,6 +70,7 @@ impl ToolOutput {
     }
 
     /// Create an output with both text and audio
+    #[must_use]
     pub fn with_audio(text: String, data: Vec<u8>, filename: String) -> Self {
         Self {
             text,
@@ -81,13 +84,17 @@ impl ToolOutput {
 pub struct ToolExecutor;
 
 impl ToolExecutor {
-    /// Execute a tool by name with the given JSON arguments
+    /// Execute a tool by name with the given JSON arguments.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the tool execution fails or the tool is unknown.
     pub async fn execute(
         name: &str,
         arguments: &str,
         tool_ctx: &ToolContext<'_>,
     ) -> Result<ToolOutput> {
-        debug!("Executing tool '{}' with args: {}", name, arguments);
+        debug!("Executing tool '{name}' with args: {arguments}");
 
         match name {
             "search_channel_history" => search_channel_history(arguments, tool_ctx)
@@ -105,8 +112,8 @@ impl ToolExecutor {
             "generate_image" => generate_image(arguments, tool_ctx).await,
             "generate_audio" => generate_audio(arguments, tool_ctx).await,
             _ => {
-                warn!("Unknown tool requested: {}", name);
-                Err(BotError::ToolExecution(format!("Unknown tool: {}", name)))
+                warn!("Unknown tool requested: {name}");
+                Err(BotError::ToolExecution(format!("Unknown tool: {name}")))
             }
         }
     }
