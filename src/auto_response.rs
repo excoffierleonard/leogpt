@@ -60,25 +60,42 @@ pub struct AutoResponseAction {
 
 /// Returns the built-in auto-response rules.
 pub fn hardcoded_auto_responses() -> Vec<AutoResponseRule> {
-    let rules = vec![AutoResponseRuleConfig {
-        name: Some("jai-vu-image".to_string()),
-        user_ids: vec![398543560330444813],
-        content: ContentMatchConfig {
-            patterns: vec![
-                "j ai vu".to_string(),
-                "jaivu".to_string(),
-                "jlaivu".to_string(),
-            ],
-            mode: MatchMode::Fuzzy,
-            compact: true,
-            fuzzy_threshold: 0.75,
-            max_token_window: 3,
+    let rules = vec![
+        AutoResponseRuleConfig {
+            name: Some("jai-vu-image".to_string()),
+            user_ids: vec![398543560330444813],
+            content: ContentMatchConfig {
+                patterns: vec![
+                    "j ai vu".to_string(),
+                    "jaivu".to_string(),
+                    "jlaivu".to_string(),
+                ],
+                mode: MatchMode::Fuzzy,
+                compact: true,
+                fuzzy_threshold: 0.75,
+                max_token_window: 3,
+            },
+            response: ResponseConfig::ImageUrl {
+                url: "https://vault-public.s3.ca-east-006.backblazeb2.com/guillaume_a_vu_4k.png"
+                    .to_string(),
+            },
         },
-        response: ResponseConfig::ImageUrl {
-            url: "https://vault-public.s3.ca-east-006.backblazeb2.com/guillaume_a_vu_4k.png"
-                .to_string(),
+        AutoResponseRuleConfig {
+            name: Some("laugh-emoji-image".to_string()),
+            user_ids: vec![398620783498493964],
+            content: ContentMatchConfig {
+                patterns: vec!["😂".to_string()],
+                mode: MatchMode::Fuzzy,
+                compact: false,
+                fuzzy_threshold: 0.75,
+                max_token_window: 1,
+            },
+            response: ResponseConfig::ImageUrl {
+                url: "https://vault-public.s3.ca-east-006.backblazeb2.com/amir_drole_4k.png"
+                    .to_string(),
+            },
         },
-    }];
+    ];
 
     rules
         .into_iter()
@@ -134,6 +151,12 @@ impl AutoResponseRuleConfig {
 impl ContentMatchConfig {
     /// Returns true when content matches this config.
     pub fn matches(&self, content: &str) -> bool {
+        for pattern in &self.patterns {
+            if has_non_alnum_whitespace(pattern) && content.contains(pattern) {
+                return true;
+            }
+        }
+
         let normalized = normalize(content);
         if normalized.is_empty() {
             debug!("Auto response match: empty content after normalize");
@@ -197,6 +220,12 @@ fn normalize(input: &str) -> String {
 
 fn compact(input: &str) -> String {
     input.chars().filter(|c| !c.is_whitespace()).collect()
+}
+
+fn has_non_alnum_whitespace(input: &str) -> bool {
+    input
+        .chars()
+        .any(|c| !(c.is_alphanumeric() || c.is_whitespace()))
 }
 
 fn fuzzy_match(tokens: &[&str], pattern: &str, threshold: f64, max_window: usize) -> bool {
