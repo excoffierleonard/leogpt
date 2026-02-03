@@ -1,5 +1,6 @@
 //! Common types used throughout the leogpt bot.
 
+use mime::Mime;
 use serde::{Deserialize, Serialize};
 
 /// Role of a message in the conversation.
@@ -36,16 +37,13 @@ pub enum MediaType {
 impl MediaType {
     /// Determine media type from a MIME content type string
     pub fn from_content_type(content_type: &str) -> Option<MediaType> {
-        if content_type.starts_with("image/") {
-            Some(MediaType::Image)
-        } else if content_type.starts_with("video/") {
-            Some(MediaType::Video)
-        } else if content_type.starts_with("audio/") {
-            Some(MediaType::Audio)
-        } else if content_type == "application/pdf" {
-            Some(MediaType::Pdf)
-        } else {
-            None
+        let mime: Mime = content_type.parse().ok()?;
+        match (mime.type_(), mime.subtype()) {
+            (mime::IMAGE, _) => Some(MediaType::Image),
+            (mime::VIDEO, _) => Some(MediaType::Video),
+            (mime::AUDIO, _) => Some(MediaType::Audio),
+            (mime::APPLICATION, subtype) if subtype.as_str() == "pdf" => Some(MediaType::Pdf),
+            _ => None,
         }
     }
 }
@@ -59,10 +57,14 @@ impl AudioFormat {
     /// e.g., "audio/mpeg" -> "mp3", "audio/wav" -> "wav"
     pub fn from_mime_type(mime_type: &str) -> Self {
         let format = mime_type
-            .trim_start_matches("audio/")
-            .trim_start_matches("x-")
-            .replace("mpeg", "mp3");
-        AudioFormat(format)
+            .parse::<Mime>()
+            .ok()
+            .and_then(|mime| {
+                mime_guess::get_mime_extensions(&mime)
+                    .and_then(|extensions| extensions.first().copied())
+            })
+            .unwrap_or("wav");
+        AudioFormat(format.to_string())
     }
 
     /// Returns the format string for the OpenRouter API

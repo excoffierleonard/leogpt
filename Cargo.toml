@@ -13,6 +13,8 @@ eventsource-stream = "0.2.3"
 futures = "0.3.31"
 hound = "3.5.1"
 log = "0.4.29"
+mime = "0.3.17"
+mime_guess = "2.0.5"
 poise = "0.6.1"
 reqwest = { version = "0.12.28", default-features = false, features = [
     "json",
@@ -22,5 +24,6 @@ reqwest = { version = "0.12.28", default-features = false, features = [
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 strsim = "0.11.1"
+strum = { version = "0.27.2", features = ["derive"] }
 thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["full"] }
