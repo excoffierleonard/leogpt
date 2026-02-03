@@ -14,13 +14,13 @@ use super::utils::matches_username;
 /// Maximum messages Discord API returns per request
 const MAX_MESSAGES: u8 = 100;
 
-/// OpenRouter embeddings API URL
+/// `OpenRouter` embeddings API URL
 const EMBEDDINGS_URL: &str = "https://openrouter.ai/api/v1/embeddings";
 
 /// Embedding model to use for semantic search
 const EMBEDDING_MODEL: &str = "google/gemini-embedding-001";
 
-/// Arguments for the search_channel_history tool
+/// Arguments for the `search_channel_history` tool
 #[derive(Debug, Deserialize)]
 struct SearchArgs {
     query: Option<String>,
@@ -38,14 +38,14 @@ struct MessageResult {
     similarity: Option<f32>,
 }
 
-/// Request payload for the OpenRouter embeddings API
+/// Request payload for the `OpenRouter` embeddings API
 #[derive(Debug, Serialize)]
 struct EmbeddingRequest {
     model: String,
     input: Vec<String>,
 }
 
-/// Response from the OpenRouter embeddings API
+/// Response from the `OpenRouter` embeddings API
 #[derive(Debug, Deserialize)]
 struct EmbeddingResponse {
     data: Vec<EmbeddingData>,
@@ -71,7 +71,7 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     dot / (norm_a * norm_b)
 }
 
-/// Get embeddings from OpenRouter API
+/// Get embeddings from `OpenRouter` API
 async fn get_embeddings(texts: &[String], api_key: &str) -> Result<Vec<Vec<f32>>> {
     if texts.is_empty() {
         return Ok(vec![]);

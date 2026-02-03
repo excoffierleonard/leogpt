@@ -1,4 +1,4 @@
-//! Web search tool implementation using OpenRouter's online search.
+//! Web search tool implementation using `OpenRouter`'s online search.
 
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions"
 /// Model for web search requests.
 const WEB_SEARCH_MODEL: &str = "google/gemini-2.5-flash-lite";
 
-/// Arguments for the web_search tool
+/// Arguments for the `web_search` tool
 #[derive(Debug, Deserialize)]
 struct WebSearchArgs {
     query: String,
@@ -31,7 +31,7 @@ struct RequestMessage {
     content: String,
 }
 
-/// Response from OpenRouter
+/// Response from `OpenRouter`
 #[derive(Debug, Deserialize)]
 struct OpenRouterResponse {
     choices: Vec<Choice>,
@@ -49,16 +49,16 @@ struct ResponseMessage {
     content: Option<String>,
 }
 
-/// Perform a web search using OpenRouter's online search capability
+/// Perform a web search using `OpenRouter`'s online search capability
 ///
-/// Makes a request to OpenRouter with the `:online` suffix appended to the model,
+/// Makes a request to `OpenRouter` with the `:online` suffix appended to the model,
 /// which enables web search for that request.
 pub async fn web_search(arguments: &str, api_key: &str) -> Result<String> {
     let args: WebSearchArgs = serde_json::from_str(arguments)?;
 
     debug!("Performing web search for: {}", args.query);
 
-    let online_model = format!("{}:online", WEB_SEARCH_MODEL);
+    let online_model = format!("{WEB_SEARCH_MODEL}:online");
 
     let request = WebSearchRequest {
         model: online_model,

@@ -9,7 +9,7 @@ use crate::error::{BotError, Result};
 use super::executor::ToolContext;
 use super::utils::matches_username;
 
-/// Arguments for the get_user_info tool
+/// Arguments for the `get_user_info` tool
 #[derive(Debug, Deserialize)]
 struct UserInfoArgs {
     username: Option<String>,
@@ -64,7 +64,7 @@ pub async fn get_user_info(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resul
                             .as_ref()
                             .is_some_and(|n| matches_username(n, username))
                 })
-                .ok_or_else(|| BotError::ToolExecution(format!("User '{}' not found", username)))?
+                .ok_or_else(|| BotError::ToolExecution(format!("User '{username}' not found")))?
         }
         (None, None) => {
             return Err(BotError::ToolExecution(
@@ -86,7 +86,7 @@ pub async fn get_user_info(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resul
     let user_id = member.user.id.to_string();
     let result = UserInfoResult {
         user_id: user_id.clone(),
-        mention: format!("<@{}>", user_id),
+        mention: format!("<@{user_id}>"),
         username: member.user.name.clone(),
         display_name: member.user.global_name.clone(),
         avatar_url: member.user.avatar_url(),

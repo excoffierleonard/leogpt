@@ -7,7 +7,7 @@ use crate::error::{BotError, Result};
 
 use super::executor::ToolContext;
 
-/// Arguments for the get_server_info tool
+/// Arguments for the `get_server_info` tool
 #[derive(Debug, Deserialize)]
 struct ServerInfoArgs {
     // No arguments needed - uses current server context

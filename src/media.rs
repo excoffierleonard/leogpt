@@ -8,6 +8,7 @@ use crate::openrouter::{AudioData, ContentPart, File, ImageUrl, VideoUrl};
 use crate::types::{AudioFormat, MediaType};
 
 /// Check if an attachment is a supported media type
+#[must_use]
 pub fn is_supported_attachment(attachment: &Attachment) -> bool {
     attachment
         .content_type
@@ -21,7 +22,7 @@ pub fn has_supported_media(attachments: &[Attachment]) -> bool {
     attachments.iter().any(is_supported_attachment)
 }
 
-/// Process a single attachment into a ContentPart
+/// Process a single attachment into a `ContentPart`
 pub async fn process_attachment(attachment: &Attachment) -> Option<ContentPart> {
     let content_type = attachment.content_type.as_ref()?;
     let media_type = MediaType::from_content_type(content_type)?;
@@ -45,22 +46,19 @@ pub async fn process_attachment(attachment: &Attachment) -> Option<ContentPart> 
         }
         MediaType::Audio => {
             debug!("Fetching audio attachment: {}", attachment.filename);
-            match fetch_audio_as_base64(&attachment.url).await {
-                Some((audio_base64, bytes_len)) => {
-                    debug!("Adding audio attachment ({} bytes)", bytes_len);
-                    let format = AudioFormat::from_mime_type(content_type);
-                    debug!("Audio format: {} -> {}", content_type, format.as_str());
-                    Some(ContentPart::InputAudio {
-                        input_audio: AudioData {
-                            data: audio_base64,
-                            format: format.into(),
-                        },
-                    })
-                }
-                None => {
-                    warn!("Failed to fetch audio attachment: {}", attachment.filename);
-                    None
-                }
+            if let Some((audio_base64, bytes_len)) = fetch_audio_as_base64(&attachment.url).await {
+                debug!("Adding audio attachment ({bytes_len} bytes)");
+                let format = AudioFormat::from_mime_type(content_type);
+                debug!("Audio format: {} -> {}", content_type, format.as_str());
+                Some(ContentPart::InputAudio {
+                    input_audio: AudioData {
+                        data: audio_base64,
+                        format: format.into(),
+                    },
+                })
+            } else {
+                warn!("Failed to fetch audio attachment: {}", attachment.filename);
+                None
             }
         }
         MediaType::Pdf => {
@@ -84,7 +82,7 @@ async fn fetch_audio_as_base64(url: &str) -> Option<(String, usize)> {
     Some((audio_base64, len))
 }
 
-/// Process all attachments and return ContentParts for supported media
+/// Process all attachments and return `ContentParts` for supported media
 pub async fn process_attachments(attachments: &[Attachment]) -> Vec<ContentPart> {
     let mut parts = Vec::new();
     for attachment in attachments {

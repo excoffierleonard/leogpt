@@ -11,12 +11,12 @@ async fn main() -> leogpt::error::Result<()> {
     info!("Starting leogpt Discord bot");
 
     match leogpt::run().await {
-        Ok(_) => {
+        Ok(()) => {
             info!("Bot shut down successfully");
             Ok(())
         }
         Err(e) => {
-            error!("Bot encountered an error: {}", e);
+            error!("Bot encountered an error: {e}");
             Err(e)
         }
     }

@@ -63,7 +63,7 @@ pub fn hardcoded_auto_responses() -> Vec<AutoResponseRule> {
     let rules = vec![
         AutoResponseRuleConfig {
             name: Some("jai-vu-image".to_string()),
-            user_ids: vec![398543560330444813],
+            user_ids: vec![398_543_560_330_444_813],
             content: ContentMatchConfig {
                 patterns: vec![
                     "j ai vu".to_string(),
@@ -82,7 +82,7 @@ pub fn hardcoded_auto_responses() -> Vec<AutoResponseRule> {
         },
         AutoResponseRuleConfig {
             name: Some("laugh-emoji-image".to_string()),
-            user_ids: vec![398620783498493964],
+            user_ids: vec![398_620_783_498_493_964],
             content: ContentMatchConfig {
                 patterns: vec!["😂".to_string()],
                 mode: MatchMode::Fuzzy,
@@ -245,8 +245,7 @@ fn fuzzy_match(tokens: &[&str], pattern: &str, threshold: f64, max_window: usize
             let sim = normalized_levenshtein(&candidate, pattern);
             if sim >= threshold {
                 debug!(
-                    "Auto response match: fuzzy hit (candidate='{}', pattern='{}', sim={:.3})",
-                    candidate, pattern, sim
+                    "Auto response match: fuzzy hit (candidate='{candidate}', pattern='{pattern}', sim={sim:.3})"
                 );
                 return true;
             }

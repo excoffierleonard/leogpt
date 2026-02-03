@@ -1,4 +1,4 @@
-//! Image generation tool implementation using OpenRouter's multimodal API.
+//! Image generation tool implementation using `OpenRouter`'s multimodal API.
 
 use chrono::Utc;
 use data_url::DataUrl;
@@ -10,7 +10,7 @@ use crate::error::{BotError, Result};
 
 use super::executor::{ToolContext, ToolOutput};
 
-/// OpenRouter chat completions API URL
+/// `OpenRouter` chat completions API URL
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
 /// Model for image generation
@@ -52,7 +52,7 @@ enum ImageSize {
     FourK,
 }
 
-/// Arguments for the generate_image tool
+/// Arguments for the `generate_image` tool
 #[derive(Debug, Deserialize)]
 struct ImageGenArgs {
     prompt: String,
@@ -108,7 +108,7 @@ struct ImageConfig {
     image_size: Option<String>,
 }
 
-/// Response from OpenRouter
+/// Response from `OpenRouter`
 #[derive(Debug, Deserialize)]
 struct OpenRouterResponse {
     choices: Vec<Choice>,
@@ -154,7 +154,7 @@ fn parse_data_url(url: &str) -> Result<(Vec<u8>, String)> {
     // most image generation models output PNG and Discord accepts any format
     let mime = data_url.mime_type();
     let extension = if mime.type_ == "image" {
-        mime.subtype.to_string()
+        mime.subtype.clone()
     } else {
         "png".to_string()
     };
@@ -162,81 +162,100 @@ fn parse_data_url(url: &str) -> Result<(Vec<u8>, String)> {
     Ok((body, extension))
 }
 
-/// Generate an image using OpenRouter's multimodal API
-///
-/// Makes a request to OpenRouter with the `modalities: ["image"]` parameter
-/// to enable image generation from the Gemini model.
+fn build_image_config(args: &ImageGenArgs) -> Result<Option<ImageConfig>> {
+    if args.aspect_ratio.is_none() && args.size.is_none() {
+        return Ok(None);
+    }
+
+    let aspect_ratio = match args.aspect_ratio.as_deref() {
+        Some(raw) => Some(raw.parse::<AspectRatio>().map_err(|_| {
+            BotError::ToolExecution(format!(
+                "Invalid aspect ratio '{}'. Supported: {}",
+                raw,
+                AspectRatio::VARIANTS.join(", ")
+            ))
+        })?),
+        None => None,
+    };
+
+    let image_size = match args.size.as_deref() {
+        Some(raw) => Some(raw.parse::<ImageSize>().map_err(|_| {
+            BotError::ToolExecution(format!(
+                "Invalid image size '{}'. Supported: {}",
+                raw,
+                ImageSize::VARIANTS.join(", ")
+            ))
+        })?),
+        None => None,
+    };
+
+    Ok(Some(ImageConfig {
+        aspect_ratio: aspect_ratio.map(|r| r.to_string()),
+        image_size: image_size.map(|s| s.to_string()),
+    }))
+}
+
+fn build_message_content(prompt: &str, recent_images: &[String]) -> MessageContent {
+    if recent_images.is_empty() {
+        return MessageContent::Text(prompt.to_string());
+    }
+
+    let mut parts: Vec<ContentPart> = recent_images
+        .iter()
+        .map(|url| ContentPart::ImageUrl {
+            image_url: ImageUrlInput { url: url.clone() },
+        })
+        .collect();
+    parts.push(ContentPart::Text {
+        text: prompt.to_string(),
+    });
+    MessageContent::MultiPart(parts)
+}
+
+fn extract_image_from_response(response: &OpenRouterResponse) -> Result<String> {
+    let choice = response
+        .choices
+        .first()
+        .ok_or_else(|| BotError::OpenRouterResponse("No response from image model".into()))?;
+
+    if choice.message.images.is_empty() {
+        if let Some(ref text) = choice.message.content {
+            return Err(BotError::OpenRouterResponse(format!(
+                "Model returned text instead of image: {}",
+                text.chars().take(200).collect::<String>()
+            )));
+        }
+        return Err(BotError::OpenRouterResponse("No image generated".into()));
+    }
+
+    choice
+        .message
+        .images
+        .first()
+        .map(|img| img.image_url.url.clone())
+        .ok_or_else(|| BotError::OpenRouterResponse("No image generated".into()))
+}
+
+/// Generate an image using `OpenRouter`'s multimodal API.
 pub async fn generate_image(arguments: &str, tool_ctx: &ToolContext<'_>) -> Result<ToolOutput> {
     let args: ImageGenArgs = serde_json::from_str(arguments)?;
-
     debug!(
         "Image generation with prompt: '{}', {} context images available",
         args.prompt,
         tool_ctx.recent_images.len()
     );
 
-    // Build image config if any options are provided
-    let image_config = if args.aspect_ratio.is_some() || args.size.is_some() {
-        let aspect_ratio = match args.aspect_ratio.as_deref() {
-            Some(raw) => Some(raw.parse::<AspectRatio>().map_err(|_| {
-                BotError::ToolExecution(format!(
-                    "Invalid aspect ratio '{}'. Supported: {}",
-                    raw,
-                    AspectRatio::VARIANTS.join(", ")
-                ))
-            })?),
-            None => None,
-        };
-
-        let image_size = match args.size.as_deref() {
-            Some(raw) => Some(raw.parse::<ImageSize>().map_err(|_| {
-                BotError::ToolExecution(format!(
-                    "Invalid image size '{}'. Supported: {}",
-                    raw,
-                    ImageSize::VARIANTS.join(", ")
-                ))
-            })?),
-            None => None,
-        };
-
-        Some(ImageConfig {
-            aspect_ratio: aspect_ratio.map(|ratio| ratio.to_string()),
-            image_size: image_size.map(|size| size.to_string()),
-        })
-    } else {
-        None
-    };
-
-    // Build message content - include context images if available
-    let content = if tool_ctx.recent_images.is_empty() {
-        MessageContent::Text(args.prompt.clone())
-    } else {
-        // Include recent images as context, then the prompt
-        let mut parts: Vec<ContentPart> = tool_ctx
-            .recent_images
-            .iter()
-            .map(|url| ContentPart::ImageUrl {
-                image_url: ImageUrlInput { url: url.clone() },
-            })
-            .collect();
-        parts.push(ContentPart::Text {
-            text: args.prompt.clone(),
-        });
-        MessageContent::MultiPart(parts)
-    };
-
     let request = ImageGenRequest {
         model: IMAGE_GEN_MODEL.to_string(),
         messages: vec![RequestMessage {
             role: "user",
-            content,
+            content: build_message_content(&args.prompt, &tool_ctx.recent_images),
         }],
         modalities: vec!["image".to_string()],
-        image_config,
+        image_config: build_image_config(&args)?,
     };
 
-    let client = reqwest::Client::new();
-    let response = client
+    let response = reqwest::Client::new()
         .post(OPENROUTER_API_URL)
         .bearer_auth(tool_ctx.openrouter_api_key)
         .header("Content-Type", "application/json")
@@ -251,49 +270,21 @@ pub async fn generate_image(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
     }
 
     let api_response: OpenRouterResponse = response.json().await?;
-
-    let choice = api_response
-        .choices
-        .first()
-        .ok_or_else(|| BotError::OpenRouterResponse("No response from image model".into()))?;
-
-    // Check if model returned text content instead of an image
-    if choice.message.images.is_empty() {
-        if let Some(ref text_content) = choice.message.content {
-            // Model returned text instead of generating an image
-            return Err(BotError::OpenRouterResponse(format!(
-                "Model returned text instead of image: {}",
-                text_content.chars().take(200).collect::<String>()
-            )));
-        }
-        return Err(BotError::OpenRouterResponse("No image generated".into()));
-    }
-
-    let data_url = choice
-        .message
-        .images
-        .first()
-        .map(|img| img.image_url.url.clone())
-        .ok_or_else(|| BotError::OpenRouterResponse("No image generated".into()))?;
+    let data_url = extract_image_from_response(&api_response)?;
 
     debug!("Image generation completed, decoding base64 data");
-
-    // Parse the data URL to get raw bytes and format
     let (image_bytes, extension) = parse_data_url(&data_url)?;
     let filename = format!("generated_{}.{}", Utc::now().timestamp(), extension);
-
     debug!(
         "Decoded image: {} bytes, format: {}",
         image_bytes.len(),
         extension
     );
 
-    // Return both text for LLM and image data for Discord
     let text = format!(
         "Image generated successfully ({} bytes, {} format)",
         image_bytes.len(),
         extension
     );
-
     Ok(ToolOutput::with_image(text, image_bytes, filename))
 }
