@@ -12,9 +12,11 @@ use poise::{
     },
 };
 
+use crate::auto_response::{
+    AutoResponsePayload, AutoResponseRule, hardcoded_auto_responses, select_auto_response,
+};
 use crate::config::Config;
 use crate::error::{BotError, Result};
-use crate::joke;
 use crate::media::{has_supported_media, process_attachments};
 use crate::openrouter::{ChatResult, ContentPart, Message, MessageContent, OpenRouterClient};
 use crate::tools::{
@@ -23,12 +25,14 @@ use crate::tools::{
 use crate::types::MessageRole;
 
 type EventResult = std::result::Result<(), Box<dyn StdError + Send + Sync>>;
+type AutoResponseResult = std::result::Result<bool, Box<dyn StdError + Send + Sync>>;
 
 const MAX_TOOL_ITERATIONS: usize = 5;
 
 struct Data {
     openrouter_client: OpenRouterClient,
     openrouter_api_key: String,
+    auto_responses: Vec<AutoResponseRule>,
 }
 
 /// Run the Discord bot.
@@ -47,6 +51,7 @@ pub async fn run() -> Result<()> {
     // Extract values before moving config into closure
     let discord_token = config.discord_token.clone();
     let api_key = config.openrouter_api_key.clone();
+    let auto_responses = hardcoded_auto_responses();
 
     debug!("Building framework");
     let framework = Framework::builder()
@@ -63,6 +68,7 @@ pub async fn run() -> Result<()> {
                 Ok(Data {
                     openrouter_client,
                     openrouter_api_key: api_key,
+                    auto_responses,
                 })
             })
         })
@@ -228,243 +234,258 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
             return Ok(());
         }
 
-        if handle_joke(ctx, new_message).await? {
+        if handle_auto_response(ctx, new_message, &data.auto_responses).await? {
             return Ok(());
         }
 
-        if !new_message.mentions_user_id(bot_user_id) {
-            return Ok(());
-        }
-
-        info!(
-            "Received message from {} in channel {}: {}",
-            new_message.author.tag(),
-            new_message.channel_id,
-            new_message.content
-        );
-
-        // Show typing indicator while processing
-        if let Err(e) = new_message.channel_id.broadcast_typing(&ctx.http).await {
-            debug!("Failed to broadcast typing indicator: {}", e);
-        }
-
-        // Build conversation history from reply chain
-        let mut conversation_history =
-            build_conversation_history(ctx, new_message, bot_user_id).await;
-
-        // Add current user message
-        conversation_history
-            .push(message_to_openrouter_message(new_message, MessageRole::User).await);
-
-        debug!(
-            "Conversation history has {} messages",
-            conversation_history.len()
-        );
-
-        // Build dynamic context for the system prompt
-        let dynamic_context = build_dynamic_context(new_message);
-
-        // Get tool definitions
-        let tools = Some(get_tool_definitions());
-
-        // Extract image URLs from conversation for tool context
-        let recent_images = extract_image_urls(&conversation_history);
-        debug!(
-            "Found {} images in conversation history",
-            recent_images.len()
-        );
-
-        // Tool execution context
-        let tool_ctx = ToolContext {
-            ctx,
-            channel_id: new_message.channel_id,
-            guild_id: new_message.guild_id,
-            openrouter_api_key: &data.openrouter_api_key,
-            recent_images,
-        };
-
-        // Collect media generated during tool execution
-        let mut generated_images: Vec<ImageAttachment> = Vec::new();
-        let mut generated_audio: Vec<AudioAttachment> = Vec::new();
-
-        // Tool loop - returns Some(text) for text response, None for media-only response
-        let mut iterations = 0;
-        let result: std::result::Result<Option<String>, BotError> = loop {
-            iterations += 1;
-            if iterations > MAX_TOOL_ITERATIONS {
-                break Err(BotError::ToolLoopLimit);
-            }
-
-            // Refresh typing indicator
-            let _ = new_message.channel_id.broadcast_typing(&ctx.http).await;
-
-            match data
-                .openrouter_client
-                .chat_with_history(
-                    conversation_history.clone(),
-                    Some(dynamic_context.clone()),
-                    tools.clone(),
-                )
-                .await
-            {
-                Ok(ChatResult::TextResponse(text)) => break Ok(Some(text)),
-                Ok(ChatResult::ToolCalls {
-                    tool_calls,
-                    assistant_message,
-                }) => {
-                    debug!("Processing {} tool calls", tool_calls.len());
-
-                    // Add assistant's tool call message to history
-                    conversation_history.push(assistant_message);
-
-                    // Execute each tool and add results
-                    for tool_call in tool_calls {
-                        let (result_text, maybe_image, maybe_audio) = match ToolExecutor::execute(
-                            &tool_call.function.name,
-                            &tool_call.function.arguments,
-                            &tool_ctx,
-                        )
-                        .await
-                        {
-                            Ok(output) => (output.text, output.image, output.audio),
-                            Err(e) => {
-                                warn!("Tool execution failed: {}", e);
-                                (format!("Error: {}", e), None, None)
-                            }
-                        };
-
-                        // If media was generated, collect it and exit the loop
-                        // to send just the media without further LLM processing
-                        if let Some(image) = maybe_image {
-                            generated_images.push(image);
-                            break;
-                        }
-                        if let Some(audio) = maybe_audio {
-                            generated_audio.push(audio);
-                            break;
-                        }
-
-                        // Add tool result to history
-                        conversation_history.push(Message {
-                            role: MessageRole::Tool,
-                            content: Some(MessageContent::Text(result_text)),
-                            tool_calls: None,
-                            tool_call_id: Some(tool_call.id.clone()),
-                        });
-                    }
-
-                    // If we have media, exit the tool loop entirely
-                    if !generated_images.is_empty() || !generated_audio.is_empty() {
-                        break Ok(None);
-                    }
-                }
-                Err(e) => break Err(e),
-            }
-        };
-
-        match result {
-            Ok(maybe_text) => {
-                // Combine all media attachments (images and audio)
-                let has_media = !generated_images.is_empty() || !generated_audio.is_empty();
-                let mut attachments: Vec<CreateAttachment> = generated_images
-                    .into_iter()
-                    .map(|img| CreateAttachment::bytes(img.data, img.filename))
-                    .collect();
-                attachments.extend(
-                    generated_audio
-                        .into_iter()
-                        .map(|aud| CreateAttachment::bytes(aud.data, aud.filename)),
-                );
-
-                // Send reply: text only, media only, or both
-                match (maybe_text, has_media) {
-                    (Some(text), false) => {
-                        // Text only
-                        new_message.reply(&ctx.http, &text).await?;
-                        info!(
-                            "Replied to {} in channel {}: {}",
-                            new_message.author.tag(),
-                            new_message.channel_id,
-                            text
-                        );
-                    }
-                    (None, true) => {
-                        // Media only
-                        let message = CreateMessage::new()
-                            .reference_message(new_message)
-                            .add_files(attachments);
-
-                        new_message
-                            .channel_id
-                            .send_message(&ctx.http, message)
-                            .await?;
-
-                        info!(
-                            "Replied to {} in channel {} with media attachment",
-                            new_message.author.tag(),
-                            new_message.channel_id
-                        );
-                    }
-                    (Some(text), true) => {
-                        // Text + media
-                        let message = CreateMessage::new()
-                            .content(&text)
-                            .reference_message(new_message)
-                            .add_files(attachments);
-
-                        new_message
-                            .channel_id
-                            .send_message(&ctx.http, message)
-                            .await?;
-
-                        info!(
-                            "Replied to {} in channel {}: {} (with media)",
-                            new_message.author.tag(),
-                            new_message.channel_id,
-                            text
-                        );
-                    }
-                    (None, false) => {
-                        // No text and no media - shouldn't happen, but handle gracefully
-                        warn!("No response content generated");
-                    }
-                }
-            }
-            Err(e) => {
-                error!(
-                    "Error processing message from {}: {}",
-                    new_message.author.tag(),
-                    e
-                );
-
-                let user_msg = e.user_message();
-                new_message.reply(&ctx.http, user_msg).await?;
-            }
-        }
+        handle_bot_mention(ctx, new_message, data, bot_user_id).await?;
     }
     Ok(())
 }
 
-/// Temporary joke handler. Remove this function + call site + `src/joke.rs` to delete the feature.
-async fn handle_joke(
+async fn handle_bot_mention(
     ctx: &Context,
     new_message: &SerenityMessage,
-) -> std::result::Result<bool, Box<dyn StdError + Send + Sync>> {
-    if joke::JOKE_ENABLED {
-        debug!(
-            "Joke check: msg from {} in channel {}: {}",
-            new_message.author.tag(),
-            new_message.channel_id,
-            new_message.content
-        );
+    data: &Data,
+    bot_user_id: UserId,
+) -> EventResult {
+    if !new_message.mentions_user_id(bot_user_id) {
+        return Ok(());
     }
 
-    if !joke::should_trigger_joke(new_message.author.id, &new_message.content) {
+    info!(
+        "Received message from {} in channel {}: {}",
+        new_message.author.tag(),
+        new_message.channel_id,
+        new_message.content
+    );
+
+    // Show typing indicator while processing
+    if let Err(e) = new_message.channel_id.broadcast_typing(&ctx.http).await {
+        debug!("Failed to broadcast typing indicator: {}", e);
+    }
+
+    // Build conversation history from reply chain
+    let mut conversation_history = build_conversation_history(ctx, new_message, bot_user_id).await;
+
+    // Add current user message
+    conversation_history.push(message_to_openrouter_message(new_message, MessageRole::User).await);
+
+    debug!(
+        "Conversation history has {} messages",
+        conversation_history.len()
+    );
+
+    // Build dynamic context for the system prompt
+    let dynamic_context = build_dynamic_context(new_message);
+
+    // Get tool definitions
+    let tools = Some(get_tool_definitions());
+
+    // Extract image URLs from conversation for tool context
+    let recent_images = extract_image_urls(&conversation_history);
+    debug!(
+        "Found {} images in conversation history",
+        recent_images.len()
+    );
+
+    // Tool execution context
+    let tool_ctx = ToolContext {
+        ctx,
+        channel_id: new_message.channel_id,
+        guild_id: new_message.guild_id,
+        openrouter_api_key: &data.openrouter_api_key,
+        recent_images,
+    };
+
+    // Collect media generated during tool execution
+    let mut generated_images: Vec<ImageAttachment> = Vec::new();
+    let mut generated_audio: Vec<AudioAttachment> = Vec::new();
+
+    // Tool loop - returns Some(text) for text response, None for media-only response
+    let mut iterations = 0;
+    let result: std::result::Result<Option<String>, BotError> = loop {
+        iterations += 1;
+        if iterations > MAX_TOOL_ITERATIONS {
+            break Err(BotError::ToolLoopLimit);
+        }
+
+        // Refresh typing indicator
+        let _ = new_message.channel_id.broadcast_typing(&ctx.http).await;
+
+        match data
+            .openrouter_client
+            .chat_with_history(
+                conversation_history.clone(),
+                Some(dynamic_context.clone()),
+                tools.clone(),
+            )
+            .await
+        {
+            Ok(ChatResult::TextResponse(text)) => break Ok(Some(text)),
+            Ok(ChatResult::ToolCalls {
+                tool_calls,
+                assistant_message,
+            }) => {
+                debug!("Processing {} tool calls", tool_calls.len());
+
+                // Add assistant's tool call message to history
+                conversation_history.push(assistant_message);
+
+                // Execute each tool and add results
+                for tool_call in tool_calls {
+                    let (result_text, maybe_image, maybe_audio) = match ToolExecutor::execute(
+                        &tool_call.function.name,
+                        &tool_call.function.arguments,
+                        &tool_ctx,
+                    )
+                    .await
+                    {
+                        Ok(output) => (output.text, output.image, output.audio),
+                        Err(e) => {
+                            warn!("Tool execution failed: {}", e);
+                            (format!("Error: {}", e), None, None)
+                        }
+                    };
+
+                    // If media was generated, collect it and exit the loop
+                    // to send just the media without further LLM processing
+                    if let Some(image) = maybe_image {
+                        generated_images.push(image);
+                        break;
+                    }
+                    if let Some(audio) = maybe_audio {
+                        generated_audio.push(audio);
+                        break;
+                    }
+
+                    // Add tool result to history
+                    conversation_history.push(Message {
+                        role: MessageRole::Tool,
+                        content: Some(MessageContent::Text(result_text)),
+                        tool_calls: None,
+                        tool_call_id: Some(tool_call.id.clone()),
+                    });
+                }
+
+                // If we have media, exit the tool loop entirely
+                if !generated_images.is_empty() || !generated_audio.is_empty() {
+                    break Ok(None);
+                }
+            }
+            Err(e) => break Err(e),
+        }
+    };
+
+    match result {
+        Ok(maybe_text) => {
+            // Combine all media attachments (images and audio)
+            let has_media = !generated_images.is_empty() || !generated_audio.is_empty();
+            let mut attachments: Vec<CreateAttachment> = generated_images
+                .into_iter()
+                .map(|img| CreateAttachment::bytes(img.data, img.filename))
+                .collect();
+            attachments.extend(
+                generated_audio
+                    .into_iter()
+                    .map(|aud| CreateAttachment::bytes(aud.data, aud.filename)),
+            );
+
+            // Send reply: text only, media only, or both
+            match (maybe_text, has_media) {
+                (Some(text), false) => {
+                    // Text only
+                    new_message.reply(&ctx.http, &text).await?;
+                    info!(
+                        "Replied to {} in channel {}: {}",
+                        new_message.author.tag(),
+                        new_message.channel_id,
+                        text
+                    );
+                }
+                (None, true) => {
+                    // Media only
+                    let message = CreateMessage::new()
+                        .reference_message(new_message)
+                        .add_files(attachments);
+
+                    new_message
+                        .channel_id
+                        .send_message(&ctx.http, message)
+                        .await?;
+
+                    info!(
+                        "Replied to {} in channel {} with media attachment",
+                        new_message.author.tag(),
+                        new_message.channel_id
+                    );
+                }
+                (Some(text), true) => {
+                    // Text + media
+                    let message = CreateMessage::new()
+                        .content(&text)
+                        .reference_message(new_message)
+                        .add_files(attachments);
+
+                    new_message
+                        .channel_id
+                        .send_message(&ctx.http, message)
+                        .await?;
+
+                    info!(
+                        "Replied to {} in channel {}: {} (with media)",
+                        new_message.author.tag(),
+                        new_message.channel_id,
+                        text
+                    );
+                }
+                (None, false) => {
+                    // No text and no media - shouldn't happen, but handle gracefully
+                    warn!("No response content generated");
+                }
+            }
+        }
+        Err(e) => {
+            error!(
+                "Error processing message from {}: {}",
+                new_message.author.tag(),
+                e
+            );
+
+            let user_msg = e.user_message();
+            new_message.reply(&ctx.http, user_msg).await?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Auto-response handler for pre-configured match rules.
+async fn handle_auto_response(
+    ctx: &Context,
+    new_message: &SerenityMessage,
+    rules: &[AutoResponseRule],
+) -> AutoResponseResult {
+    if rules.is_empty() {
         return Ok(false);
     }
 
+    debug!(
+        "Auto response check: msg from {} in channel {}: {}",
+        new_message.author.tag(),
+        new_message.channel_id,
+        new_message.content
+    );
+
+    let action = match select_auto_response(rules, new_message.author.id, &new_message.content) {
+        Some(action) => action,
+        None => return Ok(false),
+    };
+
+    let AutoResponsePayload::ImageUrl(content) = action.payload;
+
     let message = CreateMessage::new()
-        .content(joke::JOKE_IMAGE_URL)
+        .content(content)
         .reference_message(new_message);
 
     new_message
@@ -473,7 +494,8 @@ async fn handle_joke(
         .await?;
 
     info!(
-        "Sent joke response to {} in channel {}",
+        "Sent auto response '{}' to {} in channel {}",
+        action.rule_name,
         new_message.author.tag(),
         new_message.channel_id
     );
