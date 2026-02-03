@@ -1,4 +1,4 @@
-//! Discord-native tools for the OpenRouter tool calling API
+//! Discord-native tools for the `OpenRouter` tool calling API
 
 mod audio_gen;
 mod definitions;

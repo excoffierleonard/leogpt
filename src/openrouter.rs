@@ -1,4 +1,4 @@
-//! OpenRouter API client for AI chat completions.
+//! `OpenRouter` API client for AI chat completions.
 
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ const COMPLETION_MODEL: &str = "google/gemini-3-flash-preview";
 /// The system prompt for the assistant.
 const SYSTEM_PROMPT: &str = "You are a helpful assistant.";
 
-/// Request payload for the OpenRouter API.
+/// Request payload for the `OpenRouter` API.
 #[derive(Debug, Serialize)]
 struct OpenRouterRequest {
     model: String,
@@ -29,7 +29,7 @@ struct OpenRouterRequest {
     tools: Option<Vec<Tool>>,
 }
 
-/// A tool definition for the OpenRouter API.
+/// A tool definition for the `OpenRouter` API.
 #[derive(Debug, Clone, Serialize)]
 pub struct Tool {
     #[serde(rename = "type")]
@@ -139,14 +139,15 @@ struct Choice {
     message: Message,
 }
 
-/// Client for interacting with the OpenRouter API.
+/// Client for interacting with the `OpenRouter` API.
 pub struct OpenRouterClient {
     api_key: String,
     client: reqwest::Client,
 }
 
 impl OpenRouterClient {
-    /// Create a new OpenRouter client.
+    /// Create a new `OpenRouter` client.
+    #[must_use]
     pub fn new(api_key: String) -> Self {
         Self {
             api_key,
@@ -155,6 +156,10 @@ impl OpenRouterClient {
     }
 
     /// Send a chat request with conversation history.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the API request fails or returns an invalid response.
     pub async fn chat_with_history(
         &self,
         mut messages: Vec<Message>,
@@ -168,7 +173,7 @@ impl OpenRouterClient {
 
         // Build the full system prompt with dynamic context
         let full_system_prompt = if let Some(context) = dynamic_context {
-            format!("{}\n\n{}", context, SYSTEM_PROMPT)
+            format!("{context}\n\n{SYSTEM_PROMPT}")
         } else {
             SYSTEM_PROMPT.to_string()
         };

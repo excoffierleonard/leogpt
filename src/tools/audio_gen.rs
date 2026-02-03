@@ -1,4 +1,4 @@
-//! Audio generation (text-to-speech) tool implementation using OpenRouter API.
+//! Audio generation (text-to-speech) tool implementation using `OpenRouter` API.
 
 use std::io::Cursor;
 
@@ -15,7 +15,7 @@ use crate::error::{BotError, Result};
 
 use super::executor::{ToolContext, ToolOutput};
 
-/// OpenRouter chat completions API URL
+/// `OpenRouter` chat completions API URL
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
 /// Model for audio generation
@@ -32,7 +32,7 @@ enum AudioVoice {
     Shimmer,
 }
 
-/// Arguments for the generate_audio tool
+/// Arguments for the `generate_audio` tool
 #[derive(Debug, Deserialize)]
 struct AudioGenArgs {
     text: String,
@@ -64,7 +64,7 @@ struct AudioConfig {
     format: String,
 }
 
-/// Streaming chunk from OpenRouter
+/// Streaming chunk from `OpenRouter`
 #[derive(Debug, Deserialize)]
 struct StreamChunk {
     choices: Vec<StreamChoice>,
@@ -91,7 +91,7 @@ struct AudioDelta {
 }
 
 /// Create a WAV file from raw PCM16 audio data using the hound crate.
-/// OpenAI TTS outputs 24kHz mono 16-bit PCM.
+/// `OpenAI` TTS outputs 24kHz mono 16-bit PCM.
 fn create_wav_from_pcm16(pcm_data: &[u8]) -> Result<Vec<u8>> {
     let spec = WavSpec {
         channels: 1,
@@ -114,9 +114,9 @@ fn create_wav_from_pcm16(pcm_data: &[u8]) -> Result<Vec<u8>> {
     Ok(cursor.into_inner())
 }
 
-/// Generate audio from text using OpenRouter's multimodal API
+/// Generate audio from text using `OpenRouter`'s multimodal API
 ///
-/// Makes a request to OpenRouter with the `modalities: ["text", "audio"]` parameter
+/// Makes a request to `OpenRouter` with the `modalities: ["text", "audio"]` parameter
 /// to enable audio generation from the model.
 pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Result<ToolOutput> {
     let args: AudioGenArgs = serde_json::from_str(arguments)?;
