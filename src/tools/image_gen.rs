@@ -4,6 +4,7 @@ use chrono::Utc;
 use data_url::DataUrl;
 use log::debug;
 use serde::{Deserialize, Serialize};
+use strum::{Display, EnumString, VariantNames};
 
 use crate::error::{BotError, Result};
 
@@ -14,6 +15,42 @@ const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions"
 
 /// Model for image generation
 const IMAGE_GEN_MODEL: &str = "google/gemini-2.5-flash-image";
+
+#[derive(Debug, Clone, Copy, EnumString, VariantNames, Display)]
+#[strum(ascii_case_insensitive)]
+enum AspectRatio {
+    #[strum(serialize = "1:1")]
+    OneToOne,
+    #[strum(serialize = "16:9")]
+    SixteenToNine,
+    #[strum(serialize = "9:16")]
+    NineToSixteen,
+    #[strum(serialize = "2:3")]
+    TwoToThree,
+    #[strum(serialize = "3:2")]
+    ThreeToTwo,
+    #[strum(serialize = "3:4")]
+    ThreeToFour,
+    #[strum(serialize = "4:3")]
+    FourToThree,
+    #[strum(serialize = "4:5")]
+    FourToFive,
+    #[strum(serialize = "5:4")]
+    FiveToFour,
+    #[strum(serialize = "21:9")]
+    TwentyOneToNine,
+}
+
+#[derive(Debug, Clone, Copy, EnumString, VariantNames, Display)]
+#[strum(ascii_case_insensitive)]
+enum ImageSize {
+    #[strum(serialize = "1K")]
+    OneK,
+    #[strum(serialize = "2K")]
+    TwoK,
+    #[strum(serialize = "4K")]
+    FourK,
+}
 
 /// Arguments for the generate_image tool
 #[derive(Debug, Deserialize)]
@@ -105,19 +142,6 @@ struct ImageUrlOutput {
     url: String,
 }
 
-/// Validate aspect ratio is one of the supported values
-fn validate_aspect_ratio(ratio: &str) -> bool {
-    matches!(
-        ratio,
-        "1:1" | "16:9" | "9:16" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "21:9"
-    )
-}
-
-/// Validate image size is one of the supported values
-fn validate_image_size(size: &str) -> bool {
-    matches!(size, "1K" | "2K" | "4K")
-}
-
 /// Parse a data URL and extract the image bytes and format using RFC 2397 compliant parsing.
 ///
 /// Expected format: `data:image/png;base64,<base64-encoded-data>`
@@ -153,29 +177,31 @@ pub async fn generate_image(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
 
     // Build image config if any options are provided
     let image_config = if args.aspect_ratio.is_some() || args.size.is_some() {
-        // Validate aspect ratio if provided
-        if let Some(ref ratio) = args.aspect_ratio
-            && !validate_aspect_ratio(ratio)
-        {
-            return Err(BotError::ToolExecution(format!(
-                "Invalid aspect ratio '{}'. Supported: 1:1, 16:9, 9:16, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 21:9",
-                ratio
-            )));
-        }
+        let aspect_ratio = match args.aspect_ratio.as_deref() {
+            Some(raw) => Some(raw.parse::<AspectRatio>().map_err(|_| {
+                BotError::ToolExecution(format!(
+                    "Invalid aspect ratio '{}'. Supported: {}",
+                    raw,
+                    AspectRatio::VARIANTS.join(", ")
+                ))
+            })?),
+            None => None,
+        };
 
-        // Validate image size if provided
-        if let Some(ref size) = args.size
-            && !validate_image_size(size)
-        {
-            return Err(BotError::ToolExecution(format!(
-                "Invalid image size '{}'. Supported: 1K, 2K, 4K",
-                size
-            )));
-        }
+        let image_size = match args.size.as_deref() {
+            Some(raw) => Some(raw.parse::<ImageSize>().map_err(|_| {
+                BotError::ToolExecution(format!(
+                    "Invalid image size '{}'. Supported: {}",
+                    raw,
+                    ImageSize::VARIANTS.join(", ")
+                ))
+            })?),
+            None => None,
+        };
 
         Some(ImageConfig {
-            aspect_ratio: args.aspect_ratio.clone(),
-            image_size: args.size.clone(),
+            aspect_ratio: aspect_ratio.map(|ratio| ratio.to_string()),
+            image_size: image_size.map(|size| size.to_string()),
         })
     } else {
         None
