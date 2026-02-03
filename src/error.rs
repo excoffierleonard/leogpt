@@ -55,11 +55,35 @@ pub enum BotError {
 
     #[error("Not in a server (DM context)")]
     NotInServer,
+
+    #[error("User not in voice channel")]
+    NotInVoiceChannel,
+
+    #[error("Voice manager not available")]
+    MissingVoiceManager,
+
+    #[error("Failed to join voice channel: {0}")]
+    VoiceJoin(Box<songbird::error::JoinError>),
+
+    #[error("Audio file not found: {0}")]
+    AudioFileNotFound(String),
+
+    #[error("Music directory not configured")]
+    MusicNotConfigured,
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 impl From<poise::serenity_prelude::Error> for BotError {
     fn from(err: poise::serenity_prelude::Error) -> Self {
         BotError::Serenity(Box::new(err))
+    }
+}
+
+impl From<songbird::error::JoinError> for BotError {
+    fn from(err: songbird::error::JoinError) -> Self {
+        BotError::VoiceJoin(Box::new(err))
     }
 }
 
@@ -119,6 +143,24 @@ impl BotError {
             }
             BotError::NotInServer => {
                 "Sorry, this command only works in a server, not in DMs.".to_string()
+            }
+            BotError::NotInVoiceChannel => {
+                "You need to be in a voice channel to use this command.".to_string()
+            }
+            BotError::MissingVoiceManager => {
+                "Voice features are not available. Please try again later.".to_string()
+            }
+            BotError::VoiceJoin(_) => {
+                "Failed to join the voice channel. Please check my permissions.".to_string()
+            }
+            BotError::AudioFileNotFound(name) => {
+                format!("Couldn't find a song matching \"{name}\".")
+            }
+            BotError::MusicNotConfigured => {
+                "Music playback is not configured on this bot.".to_string()
+            }
+            BotError::Io(_) => {
+                "An error occurred reading audio files.".to_string()
             }
         }
     }
