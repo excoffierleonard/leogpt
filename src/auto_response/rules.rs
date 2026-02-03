@@ -2,6 +2,7 @@ use super::{
     AutoResponseRule, AutoResponseRuleConfig, ContentMatchConfig, MatchMode, ResponseConfig,
 };
 
+/// Returns the built-in auto-response rules.
 pub fn hardcoded_auto_responses() -> Vec<AutoResponseRule> {
     let rules = vec![AutoResponseRuleConfig {
         name: Some("jai-vu-image".to_string()),
