@@ -2,9 +2,11 @@
 
 mod auto_response;
 mod bot;
+mod chatbot;
 pub mod config;
 pub mod error;
 pub mod media;
+pub mod music;
 pub mod openrouter;
 pub mod tools;
 pub mod types;

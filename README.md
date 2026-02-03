@@ -11,6 +11,8 @@ A Discord bot that connects to AI models through OpenRouter. Mention the bot in 
 - Processes images, videos, audio, and PDFs
 - Auto-responses triggered by user/message match rules
 - Built-in tools for Discord lookups and web search
+- Image and audio generation via OpenRouter
+- Voice channel music playback with fuzzy song search
 
 ## Setup
 
@@ -21,6 +23,7 @@ Create a `.env` file:
 ```env
 DISCORD_TOKEN=your_discord_bot_token
 OPENROUTER_API_KEY=your_openrouter_api_key
+MUSIC_DIR=/path/to/music  # Optional: enables voice playback
 ```
 
 ### Run with Docker

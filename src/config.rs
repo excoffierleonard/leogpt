@@ -1,8 +1,9 @@
 //! Configuration management for the leogpt bot.
 
 use std::env;
+use std::path::PathBuf;
 
-use log::{debug, info};
+use log::{debug, info, warn};
 
 use crate::error::Result;
 
@@ -11,6 +12,8 @@ use crate::error::Result;
 pub struct Config {
     pub discord_token: String,
     pub openrouter_api_key: String,
+    /// Optional directory containing music files for voice playback.
+    pub music_dir: Option<PathBuf>,
 }
 
 impl Config {
@@ -26,6 +29,14 @@ impl Config {
         let discord_token = env::var("DISCORD_TOKEN")?;
         let openrouter_api_key = env::var("OPENROUTER_API_KEY")?;
 
+        // Optional music directory
+        let music_dir = env::var("MUSIC_DIR").ok().map(PathBuf::from);
+        if let Some(ref dir) = music_dir {
+            info!("Music directory configured: {}", dir.display());
+        } else {
+            warn!("MUSIC_DIR not set - music playback disabled");
+        }
+
         info!("Configuration loaded successfully");
         debug!("Discord token length: {} characters", discord_token.len());
         debug!(
@@ -35,6 +46,7 @@ impl Config {
         Ok(Self {
             discord_token,
             openrouter_api_key,
+            music_dir,
         })
     }
 }

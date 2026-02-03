@@ -7,3 +7,6 @@ services:
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      MUSIC_DIR: /app/music
+    volumes:
+      - ${MUSIC_DIR:-./music}:/app/music:ro
