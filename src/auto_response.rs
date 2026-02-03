@@ -1,12 +1,8 @@
 //! Auto-response rules and matching utilities.
 
-mod rules;
-
 use log::debug;
 use poise::serenity_prelude::UserId;
 use strsim::normalized_levenshtein;
-
-pub use rules::hardcoded_auto_responses;
 
 #[derive(Debug, Clone)]
 /// Matching strategy for auto-response patterns.
@@ -60,6 +56,35 @@ pub struct AutoResponseRule {
 pub struct AutoResponseAction {
     pub rule_name: String,
     pub payload: AutoResponsePayload,
+}
+
+/// Returns the built-in auto-response rules.
+pub fn hardcoded_auto_responses() -> Vec<AutoResponseRule> {
+    let rules = vec![AutoResponseRuleConfig {
+        name: Some("jai-vu-image".to_string()),
+        user_ids: vec![398543560330444813],
+        content: ContentMatchConfig {
+            patterns: vec![
+                "j ai vu".to_string(),
+                "jaivu".to_string(),
+                "jlaivu".to_string(),
+            ],
+            mode: MatchMode::Fuzzy,
+            compact: true,
+            fuzzy_threshold: 0.75,
+            max_token_window: 3,
+        },
+        response: ResponseConfig::ImageUrl {
+            url: "https://vault-public.s3.ca-east-006.backblazeb2.com/guillaume_a_vu_4k.png"
+                .to_string(),
+        },
+    }];
+
+    rules
+        .into_iter()
+        .enumerate()
+        .map(|(idx, cfg)| cfg.into_rule(idx))
+        .collect()
 }
 
 /// Returns the first matching auto-response action, if any.

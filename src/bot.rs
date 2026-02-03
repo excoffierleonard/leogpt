@@ -243,6 +243,7 @@ async fn event_handler(ctx: &Context, event: &FullEvent, data: &Data) -> EventRe
     Ok(())
 }
 
+/// Main handler for messages that mention the bot.
 async fn handle_bot_mention(
     ctx: &Context,
     new_message: &SerenityMessage,
