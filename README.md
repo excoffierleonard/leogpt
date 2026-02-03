@@ -9,6 +9,7 @@ A Discord bot that connects to AI models through OpenRouter. Mention the bot in 
 - Conversational AI via OpenRouter API
 - Follows Discord reply chains for context
 - Processes images, videos, audio, and PDFs
+- Auto-responses triggered by user/message match rules
 - Built-in tools for Discord lookups and web search
 
 ## Setup
