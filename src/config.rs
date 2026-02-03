@@ -28,7 +28,6 @@ impl Config {
             "OpenRouter API key length: {} characters",
             openrouter_api_key.len()
         );
-
         Ok(Self {
             discord_token,
             openrouter_api_key,
