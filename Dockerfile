@@ -24,7 +24,7 @@ RUN cargo build --release
 # Stage 3: Final Image
 ##############################
 FROM alpine:3
-RUN apk add --no-cache opus libgcc
+RUN apk add --no-cache libgcc opus 
 WORKDIR /app
 COPY --from=builder /app/target/release/leogpt .
 ENTRYPOINT ["./leogpt"]
