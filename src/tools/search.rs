@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 
 use log::debug;
 use poise::serenity_prelude::{GetMessages, Message as DiscordMessage};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{BotError, Result};
@@ -77,7 +78,7 @@ async fn get_embeddings(texts: &[String], api_key: &str) -> Result<Vec<Vec<f32>>
         return Ok(vec![]);
     }
 
-    let client = reqwest::Client::new();
+    let client = Client::new();
     let request = EmbeddingRequest {
         model: EMBEDDING_MODEL.to_string(),
         input: texts.to_vec(),

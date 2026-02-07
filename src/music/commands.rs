@@ -16,10 +16,10 @@ fn get_guild_id(ctx: Context<'_>) -> Result<GuildId> {
 
 fn get_music_config(ctx: Context<'_>) -> Result<MusicConfig> {
     ctx.data()
-        .music_dir
+        .music_store
         .as_ref()
-        .map(|dir| MusicConfig {
-            music_dir: dir.clone(),
+        .map(|store| MusicConfig {
+            store: store.clone(),
         })
         .ok_or(BotError::MusicNotConfigured)
 }

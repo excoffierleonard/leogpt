@@ -1,6 +1,7 @@
 //! Web search tool implementation using `OpenRouter`'s online search.
 
 use log::debug;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{BotError, Result};
@@ -69,7 +70,7 @@ pub async fn web_search(arguments: &str, api_key: &str) -> Result<String> {
         max_tokens: 4096,
     };
 
-    let client = reqwest::Client::new();
+    let client = Client::new();
     let response = client
         .post(OPENROUTER_API_URL)
         .bearer_auth(api_key)

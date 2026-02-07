@@ -23,7 +23,10 @@ Create a `.env` file:
 ```env
 DISCORD_TOKEN=your_discord_bot_token
 OPENROUTER_API_KEY=your_openrouter_api_key
-MUSIC_DIR=/path/to/music  # Optional: enables voice playback
+MUSIC_S3_BUCKET=your_bucket_name
+MUSIC_S3_PREFIX=music/
+MUSIC_S3_ENDPOINT=https://s3.your-region.backblazeb2.com
+MUSIC_S3_REGION=your-region
 ```
 
 ### Run with Docker

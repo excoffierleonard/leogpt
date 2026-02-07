@@ -3,6 +3,7 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use log::{debug, warn};
 use poise::serenity_prelude::Attachment;
+use reqwest::get;
 
 use crate::openrouter::{AudioData, ContentPart, File, ImageUrl, VideoUrl};
 use crate::types::{AudioFormat, MediaType};
@@ -75,7 +76,7 @@ pub async fn process_attachment(attachment: &Attachment) -> Option<ContentPart> 
 
 /// Fetch audio data from URL and encode as base64
 async fn fetch_audio_as_base64(url: &str) -> Option<(String, usize)> {
-    let response = reqwest::get(url).await.ok()?;
+    let response = get(url).await.ok()?;
     let audio_bytes = response.bytes().await.ok()?;
     let len = audio_bytes.len();
     let audio_base64 = STANDARD.encode(&audio_bytes);

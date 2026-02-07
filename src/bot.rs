@@ -1,6 +1,6 @@
 //! Discord bot core - initialization and event routing.
 
-use std::path::PathBuf;
+use std::sync::Arc;
 
 use log::{debug, error, info};
 use poise::{
@@ -8,12 +8,13 @@ use poise::{
     serenity_prelude::{ClientBuilder, Context, FullEvent, GatewayIntents},
 };
 use songbird::SerenityInit;
+use tokio::signal::ctrl_c;
 
 use crate::auto_response::{AutoResponseRule, handle_auto_response, hardcoded_auto_responses};
 use crate::chatbot::handle_bot_mention;
 use crate::config::Config;
 use crate::error::{BotError, Result};
-use crate::music::music_commands;
+use crate::music::{S3MusicStore, music_commands};
 use crate::openrouter::OpenRouterClient;
 
 type EventResult = Result<()>;
@@ -23,8 +24,8 @@ pub struct Data {
     openrouter_client: OpenRouterClient,
     openrouter_api_key: String,
     auto_responses: Vec<AutoResponseRule>,
-    /// Optional music directory for voice playback.
-    pub music_dir: Option<PathBuf>,
+    /// Optional S3 music store for voice playback.
+    pub music_store: Option<Arc<S3MusicStore>>,
 }
 
 impl Data {
@@ -78,7 +79,7 @@ pub async fn run() -> Result<()> {
     // Extract values before moving config into closure
     let discord_token = config.discord_token.clone();
     let api_key = config.openrouter_api_key.clone();
-    let music_dir = config.music_dir.clone();
+    let music_s3 = config.music_s3.clone();
     let auto_responses = hardcoded_auto_responses();
 
     debug!("Building framework");
@@ -99,7 +100,14 @@ pub async fn run() -> Result<()> {
                     openrouter_client,
                     openrouter_api_key: api_key,
                     auto_responses,
-                    music_dir,
+                    music_store: match music_s3 {
+                        Some(config) => {
+                            let store = S3MusicStore::from_config(&config).await?;
+                            store.load_cache().await?;
+                            Some(Arc::new(store))
+                        }
+                        None => None,
+                    },
                 })
             })
         })
@@ -117,7 +125,7 @@ pub async fn run() -> Result<()> {
         result = client.start() => {
             result?;
         }
-        _ = tokio::signal::ctrl_c() => {
+        _ = ctrl_c() => {
             info!("Shutdown signal received, shutting down...");
         }
     }

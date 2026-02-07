@@ -1,20 +1,20 @@
 //! Voice channel playback using Songbird.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use log::info;
 use poise::serenity_prelude::{ChannelId, Context, GuildId, UserId};
-use songbird::input::File as AudioFile;
-use songbird::{Songbird, driver::Bitrate};
+use reqwest::Client;
+use songbird::input::HttpRequest;
+use songbird::{Songbird, driver::Bitrate, get};
 
 use crate::error::{BotError, Result};
 
-use super::fuzzy_search::find_song;
+use super::s3_store::S3MusicStore;
 
 /// Configuration for music playback.
 pub struct MusicConfig {
-    pub music_dir: PathBuf,
+    pub store: Arc<S3MusicStore>,
 }
 
 /// Get the Songbird voice manager from context.
@@ -23,9 +23,7 @@ pub struct MusicConfig {
 ///
 /// Returns `MissingVoiceManager` if Songbird is not registered.
 pub async fn get_manager(ctx: &Context) -> Result<Arc<Songbird>> {
-    songbird::get(ctx)
-        .await
-        .ok_or(BotError::MissingVoiceManager)
+    get(ctx).await.ok_or(BotError::MissingVoiceManager)
 }
 
 /// Get the voice channel the user is currently in.
@@ -62,14 +60,13 @@ pub async fn play_song(
     config: &MusicConfig,
 ) -> Result<String> {
     // Find the song
-    let song_path = find_song(&config.music_dir, query)?
+    let entry = config
+        .store
+        .find_song(query)
+        .await?
         .ok_or_else(|| BotError::AudioFileNotFound(query.to_string()))?;
 
-    let song_name = song_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("unknown")
-        .to_string();
+    let song_name = entry.name.clone();
 
     // Get user's voice channel
     let channel_id =
@@ -86,11 +83,10 @@ pub async fn play_song(
     handler.stop();
     handler.set_bitrate(Bitrate::Max);
 
-    // Play the file
-    let abs_path = std::fs::canonicalize(&song_path)?;
-    info!("Playing file: {}", abs_path.display());
+    let url = config.store.presigned_url(&entry.key).await?;
+    info!("Playing from S3 URL: {url}");
 
-    let source = AudioFile::new(abs_path);
+    let source = HttpRequest::new(Client::new(), url);
     let track_handle = handler.play_input(source.into());
     info!("Track started: {:?}", track_handle.uuid());
 

@@ -7,6 +7,9 @@ services:
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      MUSIC_DIR: /app/music
-    volumes:
-      - ${MUSIC_DIR:-./music}:/app/music:ro
+      MUSIC_S3_BUCKET: ${MUSIC_S3_BUCKET}
+      MUSIC_S3_PREFIX: ${MUSIC_S3_PREFIX:-music/}
+      MUSIC_S3_ENDPOINT: ${MUSIC_S3_ENDPOINT}
+      MUSIC_S3_REGION: ${MUSIC_S3_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}

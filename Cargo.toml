@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+aws-config = "1.8.13"
+aws-sdk-s3 = "1.122.0"
 base64 = "0.22.1"
 chrono = "0.4.43"
 data-url = "0.3.2"
@@ -22,6 +24,7 @@ reqwest = { version = "0.12.28", default-features = false, features = [
     "rustls-tls",
     "stream",
 ] }
+rustls = { version = "0.23", features = ["aws_lc_rs"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 songbird = { version = "0.5.0", features = ["builtin-queue"] }

@@ -1,6 +1,7 @@
 //! `OpenRouter` API client for AI chat completions.
 
 use log::debug;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{BotError, Result};
@@ -142,7 +143,7 @@ struct Choice {
 /// Client for interacting with the `OpenRouter` API.
 pub struct OpenRouterClient {
     api_key: String,
-    client: reqwest::Client,
+    client: Client,
 }
 
 impl OpenRouterClient {
@@ -151,7 +152,7 @@ impl OpenRouterClient {
     pub fn new(api_key: String) -> Self {
         Self {
             api_key,
-            client: reqwest::Client::new(),
+            client: Client::new(),
         }
     }
 

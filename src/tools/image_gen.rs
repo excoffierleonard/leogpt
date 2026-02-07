@@ -3,6 +3,7 @@
 use chrono::Utc;
 use data_url::DataUrl;
 use log::debug;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString, VariantNames};
 
@@ -255,7 +256,7 @@ pub async fn generate_image(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
         image_config: build_image_config(&args)?,
     };
 
-    let response = reqwest::Client::new()
+    let response = Client::new()
         .post(OPENROUTER_API_URL)
         .bearer_auth(tool_ctx.openrouter_api_key)
         .header("Content-Type", "application/json")

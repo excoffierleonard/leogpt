@@ -15,10 +15,7 @@ pub enum BotError {
     EnvVar(#[from] std::env::VarError),
 
     #[error("OpenRouter API error ({status}): {message}")]
-    OpenRouterApi {
-        status: reqwest::StatusCode,
-        message: String,
-    },
+    OpenRouterApi { status: StatusCode, message: String },
 
     #[error("OpenRouter response error: {0}")]
     OpenRouterResponse(String),
@@ -68,8 +65,11 @@ pub enum BotError {
     #[error("Audio file not found: {0}")]
     AudioFileNotFound(String),
 
-    #[error("Music directory not configured")]
+    #[error("Music storage not configured")]
     MusicNotConfigured,
+
+    #[error("S3 error: {0}")]
+    S3(String),
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
@@ -158,6 +158,9 @@ impl BotError {
             }
             BotError::MusicNotConfigured => {
                 "Music playback is not configured on this bot.".to_string()
+            }
+            BotError::S3(_) => {
+                "Sorry, I encountered a problem fetching music from storage.".to_string()
             }
             BotError::Io(_) => {
                 "An error occurred reading audio files.".to_string()

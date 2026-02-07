@@ -1,47 +1,25 @@
 //! Fuzzy song matching using `SkimMatcherV2`.
 
-use std::fs;
-use std::path::{Path, PathBuf};
-
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use log::debug;
 
-use crate::error::Result;
+use super::s3_store::S3Entry;
 
 /// Find the best matching song file for a query.
 ///
-/// Returns the full path to the matched file, or `None` if no match found.
-///
-/// # Errors
-///
-/// Returns an error if the music directory cannot be read.
-pub fn find_song(music_dir: &Path, query: &str) -> Result<Option<PathBuf>> {
+/// Returns the matched entry, or `None` if no match found.
+pub fn find_song<'a>(entries: &'a [S3Entry], query: &str) -> Option<&'a S3Entry> {
     let query = query.trim();
     if query.is_empty() {
-        return Ok(None);
+        return None;
     }
 
     let matcher = SkimMatcherV2::default();
-    let mut best: Option<(PathBuf, i64)> = None;
+    let mut best: Option<(&S3Entry, i64)> = None;
 
-    for entry in fs::read_dir(music_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        if !path.is_file() {
-            continue;
-        }
-
-        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-            continue;
-        };
-
-        // Skip hidden files
-        if name.starts_with('.') {
-            continue;
-        }
-
+    for entry in entries {
+        let name = entry.name.as_str();
         if let Some(score) = matcher.fuzzy_match(name, query) {
             let is_better = best
                 .as_ref()
@@ -49,43 +27,63 @@ pub fn find_song(music_dir: &Path, query: &str) -> Result<Option<PathBuf>> {
 
             if is_better {
                 debug!("New best match: {name} (score: {score})");
-                best = Some((path, score));
+                best = Some((entry, score));
             }
         }
     }
 
-    Ok(best.map(|(path, _)| path))
+    best.map(|(entry, _)| entry)
 }
 
-/// List available songs in the music directory.
+/// List available songs in the cache.
 ///
 /// Returns a list of filenames (without full paths).
-///
-/// # Errors
-///
-/// Returns an error if the music directory cannot be read.
-pub fn list_songs(music_dir: &Path, limit: usize) -> Result<Vec<String>> {
-    let mut songs = Vec::new();
+pub fn list_songs(entries: &[S3Entry], limit: usize) -> Vec<String> {
+    entries
+        .iter()
+        .take(limit)
+        .map(|entry| entry.name.clone())
+        .collect()
+}
 
-    for entry in fs::read_dir(music_dir)? {
-        let entry = entry?;
-        let path = entry.path();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        if !path.is_file() {
-            continue;
-        }
-
-        if let Some(name) = path.file_name().and_then(|n| n.to_str())
-            && !name.starts_with('.')
-        {
-            songs.push(name.to_string());
-        }
-
-        if songs.len() >= limit {
-            break;
-        }
+    fn entries() -> Vec<S3Entry> {
+        vec![
+            S3Entry {
+                key: "music/alpha.mp3".to_string(),
+                name: "alpha.mp3".to_string(),
+            },
+            S3Entry {
+                key: "music/beta.wav".to_string(),
+                name: "beta.wav".to_string(),
+            },
+            S3Entry {
+                key: "music/gamma.flac".to_string(),
+                name: "gamma.flac".to_string(),
+            },
+        ]
     }
 
-    songs.sort();
-    Ok(songs)
+    #[test]
+    fn finds_best_match() {
+        let entries = entries();
+        let found = find_song(&entries, "alp").expect("expected match");
+        assert_eq!(found.name, "alpha.mp3");
+    }
+
+    #[test]
+    fn empty_query_returns_none() {
+        let entries = entries();
+        assert!(find_song(&entries, "  ").is_none());
+    }
+
+    #[test]
+    fn lists_limited_songs() {
+        let entries = entries();
+        let listed = list_songs(&entries, 2);
+        assert_eq!(listed, vec!["alpha.mp3", "beta.wav"]);
+    }
 }

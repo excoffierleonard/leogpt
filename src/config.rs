@@ -1,19 +1,26 @@
 //! Configuration management for the leogpt bot.
 
-use std::env;
-use std::path::PathBuf;
-
 use log::{debug, info, warn};
+use std::env;
 
-use crate::error::Result;
+use crate::error::{BotError, Result};
 
 /// Bot configuration loaded from environment variables.
 #[derive(Debug, Clone)]
 pub struct Config {
     pub discord_token: String,
     pub openrouter_api_key: String,
-    /// Optional directory containing music files for voice playback.
-    pub music_dir: Option<PathBuf>,
+    /// Optional S3 configuration for music playback.
+    pub music_s3: Option<MusicS3Config>,
+}
+
+/// S3 configuration for music playback.
+#[derive(Debug, Clone)]
+pub struct MusicS3Config {
+    pub bucket: String,
+    pub prefix: String,
+    pub endpoint: String,
+    pub region: String,
 }
 
 impl Config {
@@ -29,13 +36,32 @@ impl Config {
         let discord_token = env::var("DISCORD_TOKEN")?;
         let openrouter_api_key = env::var("OPENROUTER_API_KEY")?;
 
-        // Optional music directory
-        let music_dir = env::var("MUSIC_DIR").ok().map(PathBuf::from);
-        if let Some(ref dir) = music_dir {
-            info!("Music directory configured: {}", dir.display());
+        // Optional S3 music configuration
+        let music_s3 = if let Ok(bucket) = env::var("MUSIC_S3_BUCKET") {
+            let endpoint = env::var("MUSIC_S3_ENDPOINT").map_err(|_| {
+                BotError::Config(
+                    "MUSIC_S3_ENDPOINT is required when MUSIC_S3_BUCKET is set".to_string(),
+                )
+            })?;
+            let region = env::var("MUSIC_S3_REGION").map_err(|_| {
+                BotError::Config(
+                    "MUSIC_S3_REGION is required when MUSIC_S3_BUCKET is set".to_string(),
+                )
+            })?;
+            let prefix = env::var("MUSIC_S3_PREFIX").unwrap_or_else(|_| "music/".to_string());
+            info!(
+                "Music S3 configured: bucket={bucket}, prefix={prefix}, endpoint={endpoint}, region={region}"
+            );
+            Some(MusicS3Config {
+                bucket,
+                prefix,
+                endpoint,
+                region,
+            })
         } else {
-            warn!("MUSIC_DIR not set - music playback disabled");
-        }
+            warn!("MUSIC_S3_BUCKET not set - music playback disabled");
+            None
+        };
 
         info!("Configuration loaded successfully");
         debug!("Discord token length: {} characters", discord_token.len());
@@ -46,7 +72,7 @@ impl Config {
         Ok(Self {
             discord_token,
             openrouter_api_key,
-            music_dir,
+            music_s3,
         })
     }
 }

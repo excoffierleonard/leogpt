@@ -8,6 +8,7 @@ use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use hound::{SampleFormat, WavSpec, WavWriter};
 use log::debug;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString, VariantNames};
 
@@ -170,7 +171,7 @@ pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
         stream: true,
     };
 
-    let client = reqwest::Client::new();
+    let client = Client::new();
     let response = client
         .post(OPENROUTER_API_URL)
         .bearer_auth(tool_ctx.openrouter_api_key)
