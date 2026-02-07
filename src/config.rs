@@ -1,7 +1,8 @@
 //! Configuration management for the leogpt bot.
 
-use log::{debug, info, warn};
 use std::env;
+
+use log::{debug, info, warn};
 
 use crate::error::{BotError, Result};
 

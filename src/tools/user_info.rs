@@ -6,8 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{BotError, Result};
 
-use super::executor::ToolContext;
-use super::utils::matches_username;
+use super::{executor::ToolContext, utils::matches_username};
 
 /// Arguments for the `get_user_info` tool
 #[derive(Debug, Deserialize)]

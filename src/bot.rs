@@ -10,12 +10,14 @@ use poise::{
 use songbird::SerenityInit;
 use tokio::signal::ctrl_c;
 
-use crate::auto_response::{AutoResponseRule, handle_auto_response, hardcoded_auto_responses};
-use crate::chatbot::handle_bot_mention;
-use crate::config::Config;
-use crate::error::{BotError, Result};
-use crate::music::{S3MusicStore, music_commands};
-use crate::openrouter::OpenRouterClient;
+use crate::{
+    auto_response::{AutoResponseRule, handle_auto_response, hardcoded_auto_responses},
+    chatbot::handle_bot_mention,
+    config::Config,
+    error::{BotError, Result},
+    music::{S3MusicStore, music_commands},
+    openrouter::OpenRouterClient,
+};
 
 type EventResult = Result<()>;
 

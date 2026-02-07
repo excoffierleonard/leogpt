@@ -5,12 +5,10 @@ use poise::serenity_prelude::{ChannelId, Context, GuildId};
 
 use crate::error::{BotError, Result};
 
-use super::audio_gen::generate_audio;
-use super::image_gen::generate_image;
-use super::search::search_channel_history;
-use super::server_info::get_server_info;
-use super::user_info::get_user_info;
-use super::web_search::web_search;
+use super::{
+    audio_gen::generate_audio, image_gen::generate_image, search::search_channel_history,
+    server_info::get_server_info, user_info::get_user_info, web_search::web_search,
+};
 
 /// Context needed to execute tools
 pub struct ToolContext<'a> {

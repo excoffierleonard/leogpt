@@ -4,8 +4,10 @@ use log::debug;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{BotError, Result};
-use crate::types::MessageRole;
+use crate::{
+    error::{BotError, Result},
+    types::MessageRole,
+};
 
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 

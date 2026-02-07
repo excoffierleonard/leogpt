@@ -1,17 +1,16 @@
 //! S3-backed music storage for playback and listing.
 
-use std::fmt::Display;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{fmt::Display, sync::Arc, time::Duration};
 
 use aws_config::{BehaviorVersion, Region};
-use aws_sdk_s3::Client;
-use aws_sdk_s3::presigning::PresigningConfig;
+use aws_sdk_s3::{Client, presigning::PresigningConfig};
 use log::{info, warn};
 use tokio::sync::RwLock;
 
-use crate::config::MusicS3Config;
-use crate::error::{BotError, Result};
+use crate::{
+    config::MusicS3Config,
+    error::{BotError, Result},
+};
 
 use super::fuzzy_search::{find_song, list_songs};
 

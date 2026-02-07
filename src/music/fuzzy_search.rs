@@ -1,7 +1,6 @@
 //! Fuzzy song matching using `SkimMatcherV2`.
 
-use fuzzy_matcher::FuzzyMatcher;
-use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use log::debug;
 
 use super::s3_store::S3Entry;
