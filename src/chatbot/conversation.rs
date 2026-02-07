@@ -3,9 +3,11 @@
 use log::warn;
 use poise::serenity_prelude::{Context, Message as SerenityMessage, UserId};
 
-use crate::media::{has_supported_media, process_attachments};
-use crate::openrouter::{ContentPart, Message, MessageContent};
-use crate::types::MessageRole;
+use crate::{
+    media::{has_supported_media, process_attachments},
+    openrouter::{ContentPart, Message, MessageContent},
+    types::MessageRole,
+};
 
 /// Converts a Discord message into an `OpenRouter` Message, including any media attachments.
 pub async fn message_to_openrouter_message(

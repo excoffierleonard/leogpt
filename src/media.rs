@@ -5,8 +5,10 @@ use log::{debug, warn};
 use poise::serenity_prelude::Attachment;
 use reqwest::get;
 
-use crate::openrouter::{AudioData, ContentPart, File, ImageUrl, VideoUrl};
-use crate::types::{AudioFormat, MediaType};
+use crate::{
+    openrouter::{AudioData, ContentPart, File, ImageUrl, VideoUrl},
+    types::{AudioFormat, MediaType},
+};
 
 /// Check if an attachment is a supported media type
 #[must_use]

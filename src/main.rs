@@ -1,25 +1,20 @@
 //! Entry point for the leogpt Discord bot.
 
-use log::{error, info};
-
-use leogpt::error::Result;
-use leogpt::run;
-
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> leogpt::error::Result<()> {
     env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or("leogpt=info,serenity=warn"),
     )
     .init();
-    info!("Starting leogpt Discord bot");
+    log::info!("Starting leogpt Discord bot");
 
-    match run().await {
+    match leogpt::run().await {
         Ok(()) => {
-            info!("Bot shut down successfully");
+            log::info!("Bot shut down successfully");
             Ok(())
         }
         Err(e) => {
-            error!("Bot encountered an error: {e}");
+            log::error!("Bot encountered an error: {e}");
             Err(e)
         }
     }

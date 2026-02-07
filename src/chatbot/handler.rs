@@ -3,15 +3,14 @@
 use log::{debug, error, info};
 use poise::serenity_prelude::{Context, Message as SerenityMessage, UserId};
 
-use crate::bot::Data;
-use crate::error::Result;
-use crate::tools::ToolContext;
-use crate::types::MessageRole;
+use crate::{bot::Data, error::Result, tools::ToolContext, types::MessageRole};
 
-use super::context::build_dynamic_context;
-use super::conversation::{build_conversation_history, message_to_openrouter_message};
-use super::response::send_response;
-use super::tool_loop::{extract_image_urls, run_tool_loop};
+use super::{
+    context::build_dynamic_context,
+    conversation::{build_conversation_history, message_to_openrouter_message},
+    response::send_response,
+    tool_loop::{extract_image_urls, run_tool_loop},
+};
 
 /// Main handler for messages that mention the bot.
 pub async fn handle_bot_mention(

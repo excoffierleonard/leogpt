@@ -2,10 +2,12 @@
 
 use log::{debug, warn};
 
-use crate::error::BotError;
-use crate::openrouter::{ChatResult, ContentPart, Message, MessageContent, OpenRouterClient};
-use crate::tools::{ToolContext, ToolExecutor, get_tool_definitions};
-use crate::types::MessageRole;
+use crate::{
+    error::BotError,
+    openrouter::{ChatResult, ContentPart, Message, MessageContent, OpenRouterClient},
+    tools::{ToolContext, ToolExecutor, get_tool_definitions},
+    types::MessageRole,
+};
 
 use super::response::ToolLoopResult;
 

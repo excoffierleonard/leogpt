@@ -5,8 +5,10 @@ use poise::serenity_prelude::{Context, CreateMessage, Message as SerenityMessage
 
 use crate::error::Result;
 
-use super::matching::select_auto_response;
-use super::rules::{AutoResponsePayload, AutoResponseRule};
+use super::{
+    matching::select_auto_response,
+    rules::{AutoResponsePayload, AutoResponseRule},
+};
 
 /// Handle auto-responses for pre-configured match rules.
 ///

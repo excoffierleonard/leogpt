@@ -5,8 +5,10 @@ use poise::serenity_prelude::{
     Context, CreateAttachment, CreateMessage, Message as SerenityMessage,
 };
 
-use crate::error::Result;
-use crate::tools::{AudioAttachment, ImageAttachment};
+use crate::{
+    error::Result,
+    tools::{AudioAttachment, ImageAttachment},
+};
 
 /// Result of the tool loop containing text and media attachments.
 pub struct ToolLoopResult {

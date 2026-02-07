@@ -2,8 +2,10 @@
 
 use poise::serenity_prelude::GuildId;
 
-use crate::bot::Data;
-use crate::error::{BotError, Result};
+use crate::{
+    bot::Data,
+    error::{BotError, Result},
+};
 
 use super::playback::{MusicConfig, play_song, stop_playback};
 

@@ -5,8 +5,7 @@ use std::sync::Arc;
 use log::info;
 use poise::serenity_prelude::{ChannelId, Context, GuildId, UserId};
 use reqwest::Client;
-use songbird::input::HttpRequest;
-use songbird::{Songbird, driver::Bitrate, get};
+use songbird::{Songbird, driver::Bitrate, get, input::HttpRequest};
 
 use crate::error::{BotError, Result};
 
