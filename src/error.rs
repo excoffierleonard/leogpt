@@ -71,6 +71,12 @@ pub enum BotError {
     #[error("S3 error: {0}")]
     S3(String),
 
+    #[error("S3 error: {0}")]
+    S3Sdk(Box<aws_sdk_s3::Error>),
+
+    #[error("S3 presign config error: {0}")]
+    S3PresignConfig(#[from] aws_sdk_s3::presigning::PresigningConfigError),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -84,6 +90,21 @@ impl From<poise::serenity_prelude::Error> for BotError {
 impl From<songbird::error::JoinError> for BotError {
     fn from(err: songbird::error::JoinError) -> Self {
         BotError::VoiceJoin(Box::new(err))
+    }
+}
+
+impl From<aws_sdk_s3::Error> for BotError {
+    fn from(err: aws_sdk_s3::Error) -> Self {
+        BotError::S3Sdk(Box::new(err))
+    }
+}
+
+impl<E, R> From<aws_sdk_s3::error::SdkError<E, R>> for BotError
+where
+    aws_sdk_s3::Error: From<aws_sdk_s3::error::SdkError<E, R>>,
+{
+    fn from(err: aws_sdk_s3::error::SdkError<E, R>) -> Self {
+        BotError::S3Sdk(Box::new(err.into()))
     }
 }
 
@@ -159,7 +180,7 @@ impl BotError {
             BotError::MusicNotConfigured => {
                 "Music playback is not configured on this bot.".to_string()
             }
-            BotError::S3(_) => {
+            BotError::S3(_) | BotError::S3Sdk(_) | BotError::S3PresignConfig(_) => {
                 "Sorry, I encountered a problem fetching music from storage.".to_string()
             }
             BotError::Io(_) => {

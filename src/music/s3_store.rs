@@ -1,6 +1,6 @@
 //! S3-backed music storage for playback and listing.
 
-use std::{fmt::Display, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use aws_config::{BehaviorVersion, Region};
 use aws_sdk_s3::{Client, presigning::PresigningConfig};
@@ -89,7 +89,7 @@ impl S3MusicStore {
                 request = request.continuation_token(token);
             }
 
-            let response = request.send().await.map_err(map_s3_err)?;
+            let response = request.send().await?;
 
             if let Some(objects) = response.contents {
                 for object in objects {
@@ -175,8 +175,7 @@ impl S3MusicStore {
     pub async fn presigned_url(&self, key: &str) -> Result<String> {
         let config = PresigningConfig::builder()
             .expires_in(Duration::from_secs(3600))
-            .build()
-            .map_err(map_s3_err)?;
+            .build()?;
 
         let presigned = self
             .client
@@ -184,15 +183,10 @@ impl S3MusicStore {
             .bucket(&self.bucket)
             .key(key)
             .presigned(config)
-            .await
-            .map_err(map_s3_err)?;
+            .await?;
 
         Ok(presigned.uri().to_string())
     }
-}
-
-fn map_s3_err<E: Display>(err: E) -> BotError {
-    BotError::S3(format!("S3 error: {err}"))
 }
 
 fn normalize_endpoint(endpoint: &str, bucket: &str) -> (String, bool) {

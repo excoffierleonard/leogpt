@@ -66,6 +66,10 @@ async fn on_error(error: FrameworkError<'_, Data, BotError>) {
 /// # Errors
 ///
 /// Returns an error if configuration loading, Discord client creation, or connection fails.
+///
+/// # Panics
+///
+/// Panics if the rustls crypto provider cannot be installed.
 pub async fn run() -> Result<()> {
     // Ensure AWS SDK uses rustls for TLS, which is compatible with our S3 endpoint.
     default_provider()
