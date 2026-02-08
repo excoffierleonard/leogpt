@@ -7,7 +7,10 @@ use crate::{
     error::{BotError, Result},
 };
 
-use super::playback::{MusicConfig, play_song, stop_playback};
+use super::{
+    fuzzy_search::search_songs,
+    playback::{MusicConfig, play_song, stop_playback},
+};
 
 /// Context type for music commands.
 type Context<'a> = poise::Context<'a, Data, BotError>;
@@ -61,8 +64,39 @@ pub async fn stop(ctx: Context<'_>) -> Result<()> {
     Ok(())
 }
 
+/// Search for songs that match the provided query.
+#[poise::command(slash_command, guild_only)]
+pub async fn search(
+    ctx: Context<'_>,
+    #[description = "Search string for song names"] query: String,
+) -> Result<()> {
+    let config = get_music_config(ctx)?;
+    let query = query.trim();
+    if query.is_empty() {
+        return Err(BotError::SearchQueryEmpty);
+    }
+
+    ctx.defer().await?;
+
+    let cache = config.store.cache.read().await;
+    let results = search_songs(&cache.entries, query, 10);
+
+    if results.is_empty() {
+        return Err(BotError::SearchNoMatches(query.to_string()));
+    }
+
+    let mut lines = Vec::with_capacity(results.len());
+    for (index, entry) in results.iter().enumerate() {
+        lines.push(format!("{:>2}. {}", index + 1, entry.name));
+    }
+
+    let response = format!("Top matches for \"{query}\":\n{}", lines.join("\n"));
+    ctx.say(response).await?;
+    Ok(())
+}
+
 /// Get available music commands.
 #[must_use]
 pub fn music_commands() -> Vec<poise::Command<Data, BotError>> {
-    vec![play(), stop()]
+    vec![play(), stop(), search()]
 }
