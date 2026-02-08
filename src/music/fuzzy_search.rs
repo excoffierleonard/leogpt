@@ -34,17 +34,6 @@ pub fn find_song<'a>(entries: &'a [S3Entry], query: &str) -> Option<&'a S3Entry>
     best.map(|(entry, _)| entry)
 }
 
-/// List available songs in the cache.
-///
-/// Returns a list of filenames (without full paths).
-pub fn list_songs(entries: &[S3Entry], limit: usize) -> Vec<String> {
-    entries
-        .iter()
-        .take(limit)
-        .map(|entry| entry.name.clone())
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
