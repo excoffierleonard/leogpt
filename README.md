@@ -1,6 +1,6 @@
 # LeoGPT
 
-A Discord bot that connects to AI models through OpenRouter. Mention the bot in any channel to chat with it.
+LeoGPT is a Discord bot for fast, context-aware chat with media support, tool-driven web search and generation, auto-responses, and voice-channel music playback.
 
 <img src="assets/icon.png" alt="LeoGPT icon" width="256">
 

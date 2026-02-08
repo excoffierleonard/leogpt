@@ -18,6 +18,7 @@ use crate::{
     error::{BotError, Result},
     music::{S3MusicStore, music_commands},
     openrouter::OpenRouterClient,
+    react::react_commands,
 };
 
 type EventResult = Result<()>;
@@ -97,7 +98,11 @@ pub async fn run() -> Result<()> {
     debug!("Building framework");
     let framework = Framework::builder()
         .options(FrameworkOptions {
-            commands: music_commands(),
+            commands: {
+                let mut commands = music_commands();
+                commands.extend(react_commands());
+                commands
+            },
             event_handler: |ctx, event, _framework, data| Box::pin(event_handler(ctx, event, data)),
             on_error: |error| Box::pin(on_error(error)),
             ..Default::default()

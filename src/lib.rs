@@ -8,6 +8,7 @@ pub mod error;
 pub mod media;
 pub mod music;
 pub mod openrouter;
+mod react;
 pub mod tools;
 pub mod types;
 
