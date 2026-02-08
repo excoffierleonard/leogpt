@@ -3,6 +3,7 @@
 use std::env;
 
 use log::{debug, info, warn};
+use url::Url;
 
 use crate::error::{BotError, Result};
 
@@ -38,29 +39,15 @@ impl Config {
         let openrouter_api_key = env::var("OPENROUTER_API_KEY")?;
 
         // Optional S3 music configuration
-        let music_s3 = if let Ok(bucket) = env::var("MUSIC_S3_BUCKET") {
-            let endpoint = env::var("MUSIC_S3_ENDPOINT").map_err(|_| {
-                BotError::Config(
-                    "MUSIC_S3_ENDPOINT is required when MUSIC_S3_BUCKET is set".to_string(),
-                )
-            })?;
-            let region = env::var("MUSIC_S3_REGION").map_err(|_| {
-                BotError::Config(
-                    "MUSIC_S3_REGION is required when MUSIC_S3_BUCKET is set".to_string(),
-                )
-            })?;
-            let prefix = env::var("MUSIC_S3_PREFIX").unwrap_or_else(|_| "music/".to_string());
+        let music_s3 = if let Ok(url) = env::var("MUSIC_S3_URL") {
+            let config = parse_music_s3_url(&url)?;
             info!(
-                "Music S3 configured: bucket={bucket}, prefix={prefix}, endpoint={endpoint}, region={region}"
+                "Music S3 configured: bucket={}, prefix={}, endpoint={}, region={}",
+                config.bucket, config.prefix, config.endpoint, config.region
             );
-            Some(MusicS3Config {
-                bucket,
-                prefix,
-                endpoint,
-                region,
-            })
+            Some(config)
         } else {
-            warn!("MUSIC_S3_BUCKET not set - music playback disabled");
+            warn!("MUSIC_S3_URL not set - music playback disabled");
             None
         };
 
@@ -76,4 +63,50 @@ impl Config {
             music_s3,
         })
     }
+}
+
+fn parse_music_s3_url(url: &str) -> Result<MusicS3Config> {
+    let url =
+        Url::parse(url).map_err(|err| BotError::Config(format!("Invalid MUSIC_S3_URL: {err}")))?;
+    let scheme = url.scheme();
+    if scheme != "https" && scheme != "http" {
+        return Err(BotError::Config(
+            "MUSIC_S3_URL must use http or https".to_string(),
+        ));
+    }
+    let host = url
+        .host_str()
+        .ok_or_else(|| BotError::Config("MUSIC_S3_URL is missing a host".to_string()))?;
+    let (bucket, rest) = host.split_once(".s3.").ok_or_else(|| {
+        BotError::Config(
+            "MUSIC_S3_URL must be virtual-hosted style: https://{bucket}.s3.{region}.backblazeb2.com/..."
+                .to_string(),
+        )
+    })?;
+    if bucket.is_empty() {
+        return Err(BotError::Config("MUSIC_S3_URL bucket is empty".to_string()));
+    }
+    let region = rest.split('.').next().unwrap_or("");
+    if region.is_empty() {
+        return Err(BotError::Config(
+            "MUSIC_S3_URL region is missing".to_string(),
+        ));
+    }
+    let endpoint = format!("{scheme}://s3.{rest}");
+    let raw_path = url.path().trim_start_matches('/');
+    let prefix = if raw_path.is_empty() {
+        String::new()
+    } else if raw_path.ends_with('/') {
+        raw_path.to_string()
+    } else if let Some((parent, _)) = raw_path.rsplit_once('/') {
+        format!("{parent}/")
+    } else {
+        String::new()
+    };
+    Ok(MusicS3Config {
+        bucket: bucket.to_string(),
+        prefix,
+        endpoint,
+        region: region.to_string(),
+    })
 }
