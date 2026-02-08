@@ -7,10 +7,7 @@ use aws_sdk_s3::{Client, presigning::PresigningConfig};
 use log::{info, warn};
 use tokio::sync::RwLock;
 
-use crate::{
-    config::MusicS3Config,
-    error::{BotError, Result},
-};
+use crate::{config::MusicS3Config, error::Result};
 
 use super::fuzzy_search::{find_song, list_songs};
 
@@ -36,29 +33,21 @@ pub struct S3MusicStore {
 }
 
 impl S3MusicStore {
-    /// Build a new S3 music store from configuration.
+    /// Build a new S3 music store from configuration and eagerly load the cache.
     ///
     /// # Errors
     ///
     /// Returns an error if the AWS config or credentials cannot be loaded.
     pub async fn from_config(config: &MusicS3Config) -> Result<Self> {
-        let (endpoint, stripped_bucket) = normalize_endpoint(&config.endpoint, &config.bucket);
-        if stripped_bucket {
-            info!(
-                "Normalized S3 endpoint by stripping bucket: {} -> {}",
-                config.endpoint, endpoint
-            );
-        }
-
         let shared_config = aws_config::defaults(BehaviorVersion::latest())
             .region(Region::new(config.region.clone()))
-            .endpoint_url(endpoint)
+            .endpoint_url(config.endpoint.clone())
             .load()
             .await;
 
         let client = Client::new(&shared_config);
 
-        Ok(Self {
+        let store = Self {
             client,
             bucket: config.bucket.clone(),
             prefix: config.prefix.clone(),
@@ -66,7 +55,11 @@ impl S3MusicStore {
                 loaded: false,
                 entries: Vec::new(),
             }),
-        })
+        };
+
+        store.load_cache().await?;
+
+        Ok(store)
     }
 
     /// Load the object list into memory. Intended to be called once at startup.
@@ -144,12 +137,6 @@ impl S3MusicStore {
     /// Returns an error if the cache is not loaded.
     pub async fn find_song(&self, query: &str) -> Result<Option<S3Entry>> {
         let cache = self.cache.read().await;
-        if !cache.loaded {
-            return Err(BotError::S3(
-                "Music cache not loaded before querying".to_string(),
-            ));
-        }
-
         Ok(find_song(&cache.entries, query).cloned())
     }
 
@@ -158,12 +145,6 @@ impl S3MusicStore {
     /// Returns an error if the cache is not loaded.
     pub async fn list_songs(&self, limit: usize) -> Result<Vec<String>> {
         let cache = self.cache.read().await;
-        if !cache.loaded {
-            return Err(BotError::S3(
-                "Music cache not loaded before querying".to_string(),
-            ));
-        }
-
         Ok(list_songs(&cache.entries, limit))
     }
 
@@ -187,20 +168,6 @@ impl S3MusicStore {
 
         Ok(presigned.uri().to_string())
     }
-}
-
-fn normalize_endpoint(endpoint: &str, bucket: &str) -> (String, bool) {
-    let secure_bucket_prefix = format!("https://{bucket}.");
-    if let Some(rest) = endpoint.strip_prefix(&secure_bucket_prefix) {
-        return (format!("https://{rest}"), true);
-    }
-
-    let insecure_bucket_prefix = format!("http://{bucket}.");
-    if let Some(rest) = endpoint.strip_prefix(&insecure_bucket_prefix) {
-        return (format!("http://{rest}"), true);
-    }
-
-    (endpoint.to_string(), false)
 }
 
 /// Shared store handle for command usage.
