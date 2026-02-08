@@ -9,8 +9,6 @@ use tokio::sync::RwLock;
 
 use crate::{config::MusicS3Config, error::Result};
 
-use super::fuzzy_search::{find_song, list_songs};
-
 #[derive(Clone, Debug)]
 pub struct S3Entry {
     pub key: String,
@@ -18,9 +16,8 @@ pub struct S3Entry {
 }
 
 #[derive(Debug)]
-struct S3Cache {
-    loaded: bool,
-    entries: Vec<S3Entry>,
+pub struct S3Cache {
+    pub entries: Vec<S3Entry>,
 }
 
 /// S3 music store with a one-time startup cache.
@@ -29,7 +26,7 @@ pub struct S3MusicStore {
     client: Client,
     bucket: String,
     prefix: String,
-    cache: RwLock<S3Cache>,
+    pub cache: RwLock<S3Cache>,
 }
 
 impl S3MusicStore {
@@ -52,7 +49,6 @@ impl S3MusicStore {
             bucket: config.bucket.clone(),
             prefix: config.prefix.clone(),
             cache: RwLock::new(S3Cache {
-                loaded: false,
                 entries: Vec::new(),
             }),
         };
@@ -118,8 +114,6 @@ impl S3MusicStore {
 
         let mut cache = self.cache.write().await;
         cache.entries = entries;
-        cache.loaded = true;
-
         info!(
             "Loaded {} music objects from s3://{}/{}",
             cache.entries.len(),
@@ -128,24 +122,6 @@ impl S3MusicStore {
         );
 
         Ok(())
-    }
-
-    /// Find a song in the cached list using fuzzy matching.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the cache is not loaded.
-    pub async fn find_song(&self, query: &str) -> Result<Option<S3Entry>> {
-        let cache = self.cache.read().await;
-        Ok(find_song(&cache.entries, query).cloned())
-    }
-
-    /// # Errors
-    ///
-    /// Returns an error if the cache is not loaded.
-    pub async fn list_songs(&self, limit: usize) -> Result<Vec<String>> {
-        let cache = self.cache.read().await;
-        Ok(list_songs(&cache.entries, limit))
     }
 
     /// Create a presigned URL for streaming.

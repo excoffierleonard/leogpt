@@ -115,7 +115,6 @@ pub async fn run() -> Result<()> {
                     music_store: match music_s3 {
                         Some(config) => {
                             let store = S3MusicStore::from_config(&config).await?;
-                            store.load_cache().await?;
                             Some(Arc::new(store))
                         }
                         None => None,
