@@ -74,6 +74,9 @@ pub enum BotError {
     #[error("Music storage not configured")]
     MusicNotConfigured,
 
+    #[error("Reaction image list is empty")]
+    ReactionImagesEmpty,
+
     #[error("S3 error: {0}")]
     S3(String),
 
@@ -191,6 +194,9 @@ impl BotError {
             }
             BotError::MusicNotConfigured => {
                 "Music playback is not configured on this bot.".to_string()
+            }
+            BotError::ReactionImagesEmpty => {
+                "No reaction images are configured right now.".to_string()
             }
             BotError::S3(_) | BotError::S3Sdk(_) | BotError::S3PresignConfig(_) => {
                 "Sorry, I encountered a problem fetching music from storage.".to_string()
