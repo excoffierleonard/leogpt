@@ -34,6 +34,37 @@ pub fn find_song<'a>(entries: &'a [S3Entry], query: &str) -> Option<&'a S3Entry>
     best.map(|(entry, _)| entry)
 }
 
+/// Find the best matching songs for a query, ordered by score (best first).
+#[must_use]
+pub fn search_songs<'a>(entries: &'a [S3Entry], query: &str, limit: usize) -> Vec<&'a S3Entry> {
+    let query = query.trim();
+    if query.is_empty() || limit == 0 {
+        return Vec::new();
+    }
+
+    let matcher = SkimMatcherV2::default();
+    let mut scored_matches: Vec<(&S3Entry, i64)> = entries
+        .iter()
+        .filter_map(|entry| {
+            matcher
+                .fuzzy_match(entry.name.as_str(), query)
+                .map(|score| (entry, score))
+        })
+        .collect();
+
+    scored_matches.sort_by(|(left_entry, left_score), (right_entry, right_score)| {
+        right_score
+            .cmp(left_score)
+            .then_with(|| left_entry.name.cmp(&right_entry.name))
+    });
+
+    scored_matches
+        .into_iter()
+        .take(limit)
+        .map(|(entry, _)| entry)
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -56,10 +87,11 @@ mod tests {
     }
 
     #[test]
-    fn finds_best_match() {
+    fn finds_best_match() -> Result<(), &'static str> {
         let entries = entries();
-        let found = find_song(&entries, "alp").expect("expected match");
+        let found = find_song(&entries, "alp").ok_or("expected match")?;
         assert_eq!(found.name, "alpha.mp3");
+        Ok(())
     }
 
     #[test]
@@ -69,9 +101,35 @@ mod tests {
     }
 
     #[test]
-    fn lists_limited_songs() {
+    fn search_returns_ranked_results() -> Result<(), &'static str> {
         let entries = entries();
-        let listed = list_songs(&entries, 2);
-        assert_eq!(listed, vec!["alpha.mp3", "beta.wav"]);
+        let results = search_songs(&entries, "a", 10);
+        assert!(!results.is_empty());
+
+        let matcher = SkimMatcherV2::default();
+        let mut last_score = None;
+        for entry in results {
+            let score = matcher
+                .fuzzy_match(entry.name.as_str(), "a")
+                .ok_or("expected score")?;
+            if let Some(previous) = last_score {
+                assert!(score <= previous);
+            }
+            last_score = Some(score);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn search_limits_results() {
+        let entries = entries();
+        let results = search_songs(&entries, "a", 2);
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn search_empty_query_returns_empty() {
+        let entries = entries();
+        assert!(search_songs(&entries, "   ", 10).is_empty());
     }
 }

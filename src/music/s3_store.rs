@@ -95,12 +95,7 @@ impl S3MusicStore {
 
         let mut cache = self.cache.write().await;
         cache.entries = entries;
-        info!(
-            "Loaded {} music objects from s3://{}/{}",
-            cache.entries.len(),
-            self.bucket,
-            self.prefix
-        );
+        info!("Loaded {} music objects", cache.entries.len());
 
         Ok(())
     }

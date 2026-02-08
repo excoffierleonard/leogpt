@@ -65,6 +65,12 @@ pub enum BotError {
     #[error("Audio file not found: {0}")]
     AudioFileNotFound(String),
 
+    #[error("Search query is empty")]
+    SearchQueryEmpty,
+
+    #[error("No search matches for: {0}")]
+    SearchNoMatches(String),
+
     #[error("Music storage not configured")]
     MusicNotConfigured,
 
@@ -176,6 +182,12 @@ impl BotError {
             }
             BotError::AudioFileNotFound(name) => {
                 format!("Couldn't find a song matching \"{name}\".")
+            }
+            BotError::SearchQueryEmpty => {
+                "Please provide a search term.".to_string()
+            }
+            BotError::SearchNoMatches(query) => {
+                format!("No matches found for \"{query}\".")
             }
             BotError::MusicNotConfigured => {
                 "Music playback is not configured on this bot.".to_string()
