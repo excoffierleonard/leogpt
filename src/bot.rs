@@ -7,6 +7,7 @@ use poise::{
     Framework, FrameworkError, FrameworkOptions, builtins,
     serenity_prelude::{ClientBuilder, Context, FullEvent, GatewayIntents},
 };
+use rustls::crypto::aws_lc_rs::default_provider;
 use songbird::SerenityInit;
 use tokio::signal::ctrl_c;
 
@@ -66,6 +67,11 @@ async fn on_error(error: FrameworkError<'_, Data, BotError>) {
 ///
 /// Returns an error if configuration loading, Discord client creation, or connection fails.
 pub async fn run() -> Result<()> {
+    // Ensure AWS SDK uses rustls for TLS, which is compatible with our S3 endpoint.
+    default_provider()
+        .install_default()
+        .expect("install rustls crypto provider");
+
     info!("Initializing bot");
     let config = Config::from_env()?;
 
