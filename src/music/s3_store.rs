@@ -4,7 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 use aws_config::{BehaviorVersion, Region};
 use aws_sdk_s3::{Client, presigning::PresigningConfig};
-use log::{info, warn};
+use log::info;
 use tokio::sync::RwLock;
 
 use crate::{config::MusicS3Config, error::Result};
@@ -65,49 +65,30 @@ impl S3MusicStore {
     /// Returns an error if listing objects from S3 fails.
     pub async fn load_cache(&self) -> Result<()> {
         let mut entries = Vec::new();
-        let mut token: Option<String> = None;
+        let mut pages = self
+            .client
+            .list_objects_v2()
+            .bucket(&self.bucket)
+            .prefix(&self.prefix)
+            .into_paginator()
+            .send();
 
-        loop {
-            let mut request = self
-                .client
-                .list_objects_v2()
-                .bucket(&self.bucket)
-                .prefix(&self.prefix);
-
-            if let Some(ref token) = token {
-                request = request.continuation_token(token);
-            }
-
-            let response = request.send().await?;
-
-            if let Some(objects) = response.contents {
-                for object in objects {
-                    let Some(key) = object.key else {
-                        continue;
-                    };
-
-                    if key.ends_with('/') {
-                        continue;
-                    }
-
-                    let name = key.rsplit('/').next().unwrap_or(&key).to_string();
-                    if name.starts_with('.') {
-                        continue;
-                    }
-
-                    entries.push(S3Entry { key, name });
-                }
-            }
-
-            if response.is_truncated == Some(true) {
-                token = response.next_continuation_token;
-                if token.is_none() {
-                    warn!("S3 listing truncated but no continuation token provided");
-                    break;
-                }
-            } else {
-                break;
-            }
+        while let Some(page) = pages.next().await {
+            let response = page?;
+            entries.extend(
+                response
+                    .contents()
+                    .iter()
+                    .filter_map(|object| object.key())
+                    .filter(|key| {
+                        !key.ends_with('/')
+                            && !key.rsplit('/').next().unwrap_or(key).starts_with('.')
+                    })
+                    .map(|key| S3Entry {
+                        key: key.to_string(),
+                        name: key.rsplit('/').next().unwrap_or(key).to_string(),
+                    }),
+            );
         }
 
         entries.sort_by(|a, b| a.name.cmp(&b.name));
