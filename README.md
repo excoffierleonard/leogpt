@@ -23,10 +23,9 @@ Create a `.env` file:
 ```env
 DISCORD_TOKEN=your_discord_bot_token
 OPENROUTER_API_KEY=your_openrouter_api_key
-MUSIC_S3_BUCKET=your_bucket_name
-MUSIC_S3_PREFIX=music/
-MUSIC_S3_ENDPOINT=https://s3.your-region.backblazeb2.com
-MUSIC_S3_REGION=your-region
+MUSIC_S3_URL=https://your-bucket.s3.your-region.backblazeb2.com/your-prefix/
+AWS_ACCESS_KEY_ID=your_s3_access_key_id
+AWS_SECRET_ACCESS_KEY=your_s3_secret_access_key
 ```
 
 ### Run with Docker
