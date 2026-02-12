@@ -78,7 +78,7 @@ pub async fn search(
 
     ctx.defer().await?;
 
-    let cache = config.store.cache.read().await;
+    let cache = config.store.cache().read().await;
     let results = search_songs(&cache.entries, query, 10);
 
     if results.is_empty() {

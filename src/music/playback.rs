@@ -59,7 +59,7 @@ pub async fn play_song(
     config: &MusicConfig,
 ) -> Result<String> {
     // Find the song
-    let cache = config.store.cache.read().await;
+    let cache = config.store.cache().read().await;
     let entry = find_song(&cache.entries, query)
         .cloned()
         .ok_or_else(|| BotError::AudioFileNotFound(query.to_string()))?;

@@ -23,7 +23,8 @@ Create a `.env` file:
 ```env
 DISCORD_TOKEN=your_discord_bot_token
 OPENROUTER_API_KEY=your_openrouter_api_key
-MUSIC_S3_URL=https://your-bucket.s3.your-region.backblazeb2.com/your-prefix/
+MUSIC_S3_URL=https://your-bucket.s3.your-region.backblazeb2.com/your-music-prefix/
+MEME_S3_URL=https://your-bucket.s3.your-region.backblazeb2.com/your-meme-prefix/
 AWS_ACCESS_KEY_ID=your_s3_access_key_id
 AWS_SECRET_ACCESS_KEY=your_s3_secret_access_key
 ```
