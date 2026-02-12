@@ -1,5 +1,7 @@
 //! Slash command for random reaction images.
 
+mod s3_store;
+
 use rand::prelude::IndexedRandom;
 
 use crate::{
@@ -7,23 +9,25 @@ use crate::{
     error::{BotError, Result},
 };
 
+pub use s3_store::S3MemeStore;
+
 /// Context type for reaction command.
 type Context<'a> = poise::Context<'a, Data, BotError>;
-
-const REACTION_IMAGES: &[&str] = &[
-    "https://vault-public.s3.ca-east-006.backblazeb2.com/media/memes/enhanced/an_iq_too_high.png",
-    "https://vault-public.s3.ca-east-006.backblazeb2.com/media/memes/enhanced/does_he_know.png",
-    "https://vault-public.s3.ca-east-006.backblazeb2.com/media/memes/enhanced/he_made_a_statement_so_trash_even_his_gang_clowed_him.png",
-    "https://vault-public.s3.ca-east-006.backblazeb2.com/media/memes/enhanced/why_is_he_lying.png",
-];
 
 /// Send a random reaction image.
 #[poise::command(slash_command)]
 pub async fn react(ctx: Context<'_>) -> Result<()> {
-    let url = REACTION_IMAGES
+    let store = ctx
+        .data()
+        .meme_store
+        .as_ref()
+        .ok_or(BotError::MemeNotConfigured)?;
+    let cache = store.cache().read().await;
+    let entry = cache
+        .entries
         .choose(&mut rand::rng())
-        .copied()
         .ok_or(BotError::ReactionImagesEmpty)?;
+    let url = store.public_url(&entry.key);
 
     ctx.say(url).await?;
     Ok(())

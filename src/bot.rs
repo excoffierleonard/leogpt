@@ -18,7 +18,7 @@ use crate::{
     error::{BotError, Result},
     music::{S3MusicStore, music_commands},
     openrouter::OpenRouterClient,
-    react::react_commands,
+    react::{S3MemeStore, react_commands},
 };
 
 type EventResult = Result<()>;
@@ -30,6 +30,8 @@ pub struct Data {
     auto_responses: Vec<AutoResponseRule>,
     /// Optional S3 music store for voice playback.
     pub music_store: Option<Arc<S3MusicStore>>,
+    /// Optional S3 meme store for reaction images.
+    pub meme_store: Option<Arc<S3MemeStore>>,
 }
 
 impl Data {
@@ -93,6 +95,7 @@ pub async fn run() -> Result<()> {
     let discord_token = config.discord_token.clone();
     let api_key = config.openrouter_api_key.clone();
     let music_s3 = config.music_s3.clone();
+    let meme_s3 = config.meme_s3.clone();
     let auto_responses = hardcoded_auto_responses();
 
     debug!("Building framework");
@@ -120,6 +123,13 @@ pub async fn run() -> Result<()> {
                     music_store: match music_s3 {
                         Some(config) => {
                             let store = S3MusicStore::from_config(&config).await?;
+                            Some(Arc::new(store))
+                        }
+                        None => None,
+                    },
+                    meme_store: match meme_s3 {
+                        Some(config) => {
+                            let store = S3MemeStore::from_config(&config).await?;
                             Some(Arc::new(store))
                         }
                         None => None,

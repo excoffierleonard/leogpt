@@ -74,6 +74,9 @@ pub enum BotError {
     #[error("Music storage not configured")]
     MusicNotConfigured,
 
+    #[error("Meme storage not configured")]
+    MemeNotConfigured,
+
     #[error("Reaction image list is empty")]
     ReactionImagesEmpty,
 
@@ -194,6 +197,9 @@ impl BotError {
             }
             BotError::MusicNotConfigured => {
                 "Music playback is not configured on this bot.".to_string()
+            }
+            BotError::MemeNotConfigured => {
+                "Reaction memes are not configured on this bot.".to_string()
             }
             BotError::ReactionImagesEmpty => {
                 "No reaction images are configured right now.".to_string()

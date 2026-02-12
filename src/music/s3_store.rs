@@ -1,32 +1,23 @@
 //! S3-backed music storage for playback and listing.
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
-use aws_config::{BehaviorVersion, Region};
-use aws_sdk_s3::{Client, presigning::PresigningConfig};
+use aws_sdk_s3::presigning::PresigningConfig;
 use log::info;
 use tokio::sync::RwLock;
 
-use crate::{config::MusicS3Config, error::Result};
+use crate::{
+    config::S3Config,
+    error::Result,
+    s3_index::{S3Cache, S3Index},
+};
 
-#[derive(Clone, Debug)]
-pub struct S3Entry {
-    pub key: String,
-    pub name: String,
-}
-
-#[derive(Debug)]
-pub struct S3Cache {
-    pub entries: Vec<S3Entry>,
-}
+pub use crate::s3_index::S3Entry;
 
 /// S3 music store with a one-time startup cache.
 #[derive(Debug)]
 pub struct S3MusicStore {
-    client: Client,
-    bucket: String,
-    prefix: String,
-    pub cache: RwLock<S3Cache>,
+    index: S3Index,
 }
 
 impl S3MusicStore {
@@ -35,69 +26,11 @@ impl S3MusicStore {
     /// # Errors
     ///
     /// Returns an error if the AWS config or credentials cannot be loaded.
-    pub async fn from_config(config: &MusicS3Config) -> Result<Self> {
-        let shared_config = aws_config::defaults(BehaviorVersion::latest())
-            .region(Region::new(config.region.clone()))
-            .endpoint_url(config.endpoint.clone())
-            .load()
-            .await;
-
-        let client = Client::new(&shared_config);
-
-        let store = Self {
-            client,
-            bucket: config.bucket.clone(),
-            prefix: config.prefix.clone(),
-            cache: RwLock::new(S3Cache {
-                entries: Vec::new(),
-            }),
-        };
-
-        store.load_cache().await?;
-
-        Ok(store)
-    }
-
-    /// Load the object list into memory. Intended to be called once at startup.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if listing objects from S3 fails.
-    pub async fn load_cache(&self) -> Result<()> {
-        let mut entries = Vec::new();
-        let mut pages = self
-            .client
-            .list_objects_v2()
-            .bucket(&self.bucket)
-            .prefix(&self.prefix)
-            .into_paginator()
-            .send();
-
-        while let Some(page) = pages.next().await {
-            let response = page?;
-            entries.extend(
-                response
-                    .contents()
-                    .iter()
-                    .filter_map(|object| object.key())
-                    .filter(|key| {
-                        !key.ends_with('/')
-                            && !key.rsplit('/').next().unwrap_or(key).starts_with('.')
-                    })
-                    .map(|key| S3Entry {
-                        key: key.to_string(),
-                        name: key.rsplit('/').next().unwrap_or(key).to_string(),
-                    }),
-            );
-        }
-
-        entries.sort_by(|a, b| a.name.cmp(&b.name));
-
-        let mut cache = self.cache.write().await;
-        cache.entries = entries;
-        info!("Loaded {} music objects", cache.entries.len());
-
-        Ok(())
+    pub async fn from_config(config: &S3Config) -> Result<Self> {
+        let index = S3Index::new(config).await?;
+        let count = index.cache().read().await.entries.len();
+        info!("Loaded {count} music objects");
+        Ok(Self { index })
     }
 
     /// Create a presigned URL for streaming.
@@ -111,16 +44,18 @@ impl S3MusicStore {
             .build()?;
 
         let presigned = self
-            .client
+            .index
+            .client()
             .get_object()
-            .bucket(&self.bucket)
+            .bucket(self.index.bucket())
             .key(key)
             .presigned(config)
             .await?;
 
         Ok(presigned.uri().to_string())
     }
-}
 
-/// Shared store handle for command usage.
-pub type SharedS3MusicStore = Arc<S3MusicStore>;
+    pub(crate) fn cache(&self) -> &RwLock<S3Cache> {
+        self.index.cache()
+    }
+}
