@@ -2,6 +2,7 @@
 
 use log::{debug, info};
 use poise::serenity_prelude::{Context, CreateMessage, Message as SerenityMessage};
+use rand::random;
 
 use crate::error::Result;
 
@@ -9,6 +10,10 @@ use super::{
     matching::select_auto_response,
     rules::{AutoResponsePayload, AutoResponseRule},
 };
+
+fn should_send_auto_response() -> bool {
+    random::<u32>().is_multiple_of(6)
+}
 
 /// Handle auto-responses for pre-configured match rules.
 ///
@@ -33,6 +38,16 @@ pub async fn handle_auto_response(
     else {
         return Ok(false);
     };
+
+    if !should_send_auto_response() {
+        debug!(
+            "Auto response throttle: skipped rule '{}' for {} in channel {}",
+            action.rule_name,
+            new_message.author.tag(),
+            new_message.channel_id
+        );
+        return Ok(false);
+    }
 
     let AutoResponsePayload::ImageUrl(content) = action.payload;
 
