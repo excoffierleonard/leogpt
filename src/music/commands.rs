@@ -7,10 +7,8 @@ use crate::{
     error::{BotError, Result},
 };
 
-use super::{
-    fuzzy_search::search_songs,
-    playback::{MusicConfig, play_song, stop_playback},
-};
+use super::playback::{MusicConfig, play_song, stop_playback};
+use crate::fuzzy_search::search_fuzzy;
 
 /// Context type for music commands.
 type Context<'a> = poise::Context<'a, Data, BotError>;
@@ -79,7 +77,7 @@ pub async fn search(
     ctx.defer().await?;
 
     let cache = config.store.cache().read().await;
-    let results = search_songs(&cache.entries, query, 10);
+    let results = search_fuzzy(&cache.entries, query, 10);
 
     if results.is_empty() {
         return Err(BotError::SearchNoMatches(query.to_string()));

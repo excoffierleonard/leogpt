@@ -9,7 +9,9 @@ use songbird::{Songbird, driver::Bitrate, get, input::HttpRequest};
 
 use crate::error::{BotError, Result};
 
-use super::{fuzzy_search::find_song, s3_store::S3MusicStore};
+use crate::fuzzy_search::find_best_fuzzy;
+
+use super::s3_store::S3MusicStore;
 
 /// Configuration for music playback.
 pub struct MusicConfig {
@@ -60,7 +62,7 @@ pub async fn play_song(
 ) -> Result<String> {
     // Find the song
     let cache = config.store.cache().read().await;
-    let entry = find_song(&cache.entries, query)
+    let entry = find_best_fuzzy(&cache.entries, query)
         .cloned()
         .ok_or_else(|| BotError::AudioFileNotFound(query.to_string()))?;
 

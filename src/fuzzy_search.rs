@@ -1,14 +1,26 @@
-//! Fuzzy song matching using `SkimMatcherV2`.
+//! Shared fuzzy matching utilities for S3-backed content.
 
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use log::debug;
 
-use super::s3_store::S3Entry;
+use crate::s3_index::S3Entry;
 
-/// Find the best matching song file for a query.
-///
-/// Returns the matched entry, or `None` if no match found.
-pub fn find_song<'a>(entries: &'a [S3Entry], query: &str) -> Option<&'a S3Entry> {
+/// Find an exact (case-insensitive) match by entry name.
+#[must_use]
+pub fn find_exact<'a>(entries: &'a [S3Entry], query: &str) -> Option<&'a S3Entry> {
+    let query = query.trim();
+    if query.is_empty() {
+        return None;
+    }
+
+    entries
+        .iter()
+        .find(|entry| entry.name.eq_ignore_ascii_case(query))
+}
+
+/// Find the best fuzzy match for a query.
+#[must_use]
+pub fn find_best_fuzzy<'a>(entries: &'a [S3Entry], query: &str) -> Option<&'a S3Entry> {
     let query = query.trim();
     if query.is_empty() {
         return None;
@@ -34,9 +46,9 @@ pub fn find_song<'a>(entries: &'a [S3Entry], query: &str) -> Option<&'a S3Entry>
     best.map(|(entry, _)| entry)
 }
 
-/// Find the best matching songs for a query, ordered by score (best first).
+/// Find the best matching entries for a query, ordered by score (best first).
 #[must_use]
-pub fn search_songs<'a>(entries: &'a [S3Entry], query: &str, limit: usize) -> Vec<&'a S3Entry> {
+pub fn search_fuzzy<'a>(entries: &'a [S3Entry], query: &str, limit: usize) -> Vec<&'a S3Entry> {
     let query = query.trim();
     if query.is_empty() || limit == 0 {
         return Vec::new();
@@ -87,23 +99,30 @@ mod tests {
     }
 
     #[test]
-    fn finds_best_match() -> Result<(), &'static str> {
+    fn exact_match_is_case_insensitive() {
         let entries = entries();
-        let found = find_song(&entries, "alp").ok_or("expected match")?;
+        let found = find_exact(&entries, "ALPHA.MP3").expect("expected match");
         assert_eq!(found.name, "alpha.mp3");
-        Ok(())
     }
 
     #[test]
     fn empty_query_returns_none() {
         let entries = entries();
-        assert!(find_song(&entries, "  ").is_none());
+        assert!(find_best_fuzzy(&entries, "  ").is_none());
+    }
+
+    #[test]
+    fn finds_best_match() -> Result<(), &'static str> {
+        let entries = entries();
+        let found = find_best_fuzzy(&entries, "alp").ok_or("expected match")?;
+        assert_eq!(found.name, "alpha.mp3");
+        Ok(())
     }
 
     #[test]
     fn search_returns_ranked_results() -> Result<(), &'static str> {
         let entries = entries();
-        let results = search_songs(&entries, "a", 10);
+        let results = search_fuzzy(&entries, "a", 10);
         assert!(!results.is_empty());
 
         let matcher = SkimMatcherV2::default();
@@ -123,13 +142,13 @@ mod tests {
     #[test]
     fn search_limits_results() {
         let entries = entries();
-        let results = search_songs(&entries, "a", 2);
+        let results = search_fuzzy(&entries, "a", 2);
         assert_eq!(results.len(), 2);
     }
 
     #[test]
     fn search_empty_query_returns_empty() {
         let entries = entries();
-        assert!(search_songs(&entries, "   ", 10).is_empty());
+        assert!(search_fuzzy(&entries, "   ", 10).is_empty());
     }
 }

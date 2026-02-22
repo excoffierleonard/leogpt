@@ -1,7 +1,6 @@
 //! Music playback module for voice channel audio.
 
 mod commands;
-mod fuzzy_search;
 mod playback;
 mod s3_store;
 
