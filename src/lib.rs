@@ -5,6 +5,7 @@ mod bot;
 mod chatbot;
 pub mod config;
 pub mod error;
+mod fuzzy_search;
 pub mod media;
 pub mod music;
 pub mod openrouter;
