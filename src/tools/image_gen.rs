@@ -15,7 +15,7 @@ use super::executor::{ToolContext, ToolOutput};
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
 /// Model for image generation
-const IMAGE_GEN_MODEL: &str = "google/gemini-2.5-flash-image";
+const IMAGE_GEN_MODEL: &str = "google/gemini-3.1-flash-image-preview";
 
 #[derive(Debug, Clone, Copy, EnumString, VariantNames, Display)]
 #[strum(ascii_case_insensitive)]
