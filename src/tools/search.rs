@@ -18,7 +18,7 @@ const MAX_MESSAGES: u8 = 100;
 const EMBEDDINGS_URL: &str = "https://openrouter.ai/api/v1/embeddings";
 
 /// Embedding model to use for semantic search
-const EMBEDDING_MODEL: &str = "google/gemini-embedding-001";
+const EMBEDDING_MODEL: &str = "google/gemini-embedding-2";
 
 /// Arguments for the `search_channel_history` tool
 #[derive(Debug, Deserialize)]
