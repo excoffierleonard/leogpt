@@ -20,7 +20,7 @@ use super::executor::{ToolContext, ToolOutput};
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
 /// Model for audio generation
-const AUDIO_GEN_MODEL: &str = "openai/gpt-audio-mini";
+const AUDIO_GEN_MODEL: &str = "google/lyria-3-pro-preview";
 
 #[derive(Debug, Clone, Copy, EnumString, VariantNames, Display)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
