@@ -40,7 +40,7 @@ impl S3MusicStore {
     /// Returns an error if presigning fails.
     pub async fn presigned_url(&self, key: &str) -> Result<String> {
         let config = PresigningConfig::builder()
-            .expires_in(Duration::from_secs(3600))
+            .expires_in(Duration::from_hours(1))
             .build()?;
 
         let presigned = self
