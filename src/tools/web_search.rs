@@ -9,7 +9,7 @@ use crate::error::{BotError, Result};
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
 /// Model for web search requests.
-const WEB_SEARCH_MODEL: &str = "google/gemini-3.7-flash";
+const WEB_SEARCH_MODEL: &str = "anthropic/claude-haiku-latest";
 
 /// Arguments for the `web_search` tool
 #[derive(Debug, Deserialize)]

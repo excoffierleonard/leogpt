@@ -17,7 +17,7 @@ const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions"
 const MAX_TOKENS: u32 = 512;
 
 /// Model for chat completions.
-const COMPLETION_MODEL: &str = "google/gemini-3.7-flash";
+const COMPLETION_MODEL: &str = "anthropic/claude-haiku-latest";
 
 /// The system prompt for the assistant.
 const SYSTEM_PROMPT: &str = "You are a helpful assistant.";
