@@ -95,13 +95,30 @@ fn generate_image_tool() -> Tool {
 fn generate_audio_tool() -> Tool {
     tool(
         "generate_audio",
-        "Generate spoken audio from text using text-to-speech. Converts written text into natural-sounding speech. \
-         Useful for voice responses, narration, or reading text aloud.",
+        "Generate a short piece of music from a text description - can include vocals, \
+         timed lyrics, and full instrumental arrangements. Not for literal text narration; \
+         use generate_speech instead when the goal is to read exact text aloud.",
         json!({
             "type": "object",
             "properties": {
-                "text": { "type": "string", "description": "The text to convert to speech (max 4096 characters)" },
-                "voice": { "type": "string", "description": "Voice to use: alloy (neutral), echo (male), fable (British), onyx (deep male), nova (female), shimmer (soft female). Default: alloy" }
+                "prompt": { "type": "string", "description": "Description of the music to generate (e.g., 'an upbeat synthwave track', 'a sad piano ballad', 'a pop song with lyrics about summer')" }
+            },
+            "required": ["prompt"]
+        }),
+    )
+}
+
+fn generate_speech_tool() -> Tool {
+    tool(
+        "generate_speech",
+        "Convert exact text into spoken audio (text-to-speech). Reads the given text aloud \
+         verbatim, without interpreting or responding to it. Useful for voice responses, \
+         narration, or reading text aloud.",
+        json!({
+            "type": "object",
+            "properties": {
+                "text": { "type": "string", "description": "The exact text to speak aloud" },
+                "voice": { "type": "string", "description": "Voice to use, e.g. Zephyr, Puck, Kore, Charon, Fenrir, Leda, Orus, Aoede. Default: Zephyr" }
             },
             "required": ["text"]
         }),
@@ -136,6 +153,7 @@ pub fn get_tool_definitions() -> Vec<Tool> {
         web_search_tool(),
         generate_image_tool(),
         generate_audio_tool(),
+        generate_speech_tool(),
         generate_video_tool(),
     ]
 }

@@ -7,6 +7,24 @@ use url::Url;
 
 use crate::error::{BotError, Result};
 
+/// Model for chat completions and text-based tool calls (e.g. web search).
+pub const TEXT_MODEL: &str = "google/gemini-3.7-flash";
+
+/// Model for embeddings (semantic channel search).
+pub const EMBEDDING_MODEL: &str = "google/gemini-embedding-2";
+
+/// Model for image generation.
+pub const IMAGE_GEN_MODEL: &str = "google/gemini-3.1-flash-lite-image";
+
+/// Model for general audio generation (sound effects, music, expressive audio).
+pub const AUDIO_GEN_MODEL: &str = "google/lyria-3-clip-preview";
+
+/// Model for text-to-speech.
+pub const SPEECH_GEN_MODEL: &str = "google/gemini-3.1-flash-tts-preview";
+
+/// Model for video generation.
+pub const VIDEO_GEN_MODEL: &str = "google/veo-3.1-lite";
+
 /// Bot configuration loaded from environment variables.
 #[derive(Debug, Clone)]
 pub struct Config {

@@ -1,4 +1,7 @@
-//! Audio generation (text-to-speech) tool implementation using `OpenRouter` API.
+//! Audio generation tool implementation using `OpenRouter`'s multimodal API.
+//!
+//! For general creative audio (sound effects, music, expressive voice performances).
+//! For literal text-to-speech narration, see `speech_gen`.
 
 use std::io::Cursor;
 
@@ -10,34 +13,21 @@ use hound::{SampleFormat, WavSpec, WavWriter};
 use log::debug;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumString, VariantNames};
 
-use crate::error::{BotError, Result};
+use crate::{
+    config::AUDIO_GEN_MODEL,
+    error::{BotError, Result},
+};
 
 use super::executor::{ToolContext, ToolOutput};
 
 /// `OpenRouter` chat completions API URL
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
-/// Model for audio generation
-const AUDIO_GEN_MODEL: &str = "openai/gpt-audio-mini";
-
-#[derive(Debug, Clone, Copy, EnumString, VariantNames, Display)]
-#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
-enum AudioVoice {
-    Alloy,
-    Echo,
-    Fable,
-    Onyx,
-    Nova,
-    Shimmer,
-}
-
 /// Arguments for the `generate_audio` tool
 #[derive(Debug, Deserialize)]
 struct AudioGenArgs {
-    text: String,
-    voice: Option<String>,
+    prompt: String,
 }
 
 /// Request payload for audio generation
@@ -61,7 +51,6 @@ struct RequestMessage {
 /// Audio configuration for the request
 #[derive(Debug, Serialize)]
 struct AudioConfig {
-    voice: String,
     format: String,
 }
 
@@ -92,11 +81,11 @@ struct AudioDelta {
 }
 
 /// Create a WAV file from raw PCM16 audio data using the hound crate.
-/// `OpenAI` TTS outputs 24kHz mono 16-bit PCM.
+/// `AUDIO_GEN_MODEL` (Lyria) outputs 48kHz stereo 16-bit PCM.
 fn create_wav_from_pcm16(pcm_data: &[u8]) -> Result<Vec<u8>> {
     let spec = WavSpec {
-        channels: 1,
-        sample_rate: 24000,
+        channels: 2,
+        sample_rate: 48000,
         bits_per_sample: 16,
         sample_format: SampleFormat::Int,
     };
@@ -115,57 +104,29 @@ fn create_wav_from_pcm16(pcm_data: &[u8]) -> Result<Vec<u8>> {
     Ok(cursor.into_inner())
 }
 
-/// Generate audio from text using `OpenRouter`'s multimodal API
+/// Generate audio from a creative prompt using `OpenRouter`'s multimodal API
 ///
 /// Makes a request to `OpenRouter` with the `modalities: ["text", "audio"]` parameter
 /// to enable audio generation from the model.
 pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Result<ToolOutput> {
     let args: AudioGenArgs = serde_json::from_str(arguments)?;
 
-    // Validate text is not empty
-    if args.text.trim().is_empty() {
-        return Err(BotError::ToolExecution("Text cannot be empty.".into()));
+    if args.prompt.trim().is_empty() {
+        return Err(BotError::ToolExecution("Prompt cannot be empty.".into()));
     }
 
-    // Validate and set voice (default: "alloy")
-    let voice = match args.voice.as_deref() {
-        Some(raw) => raw.parse::<AudioVoice>().map_err(|_| {
-            BotError::ToolExecution(format!(
-                "Invalid voice '{}'. Supported: {}",
-                raw,
-                AudioVoice::VARIANTS.join(", ")
-            ))
-        })?,
-        None => AudioVoice::Alloy,
-    };
-
-    debug!(
-        "Audio generation with text length: {}, voice: {}",
-        args.text.len(),
-        voice
-    );
+    debug!("Audio generation with prompt length: {}", args.prompt.len());
 
     let audio_config = AudioConfig {
-        voice: voice.to_string(),
         format: "pcm16".to_string(),
     };
 
-    // Frame the text as an explicit "say this" instruction to prevent the model
-    // from interpreting it as a conversation and responding to it.
-    let tts_prompt = format!("Say exactly: \"{}\"", args.text);
-
     let request = AudioGenRequest {
         model: AUDIO_GEN_MODEL.to_string(),
-        messages: vec![
-            RequestMessage {
-                role: "system",
-                content: "You are a text-to-speech system. Your only function is to vocalize the exact text provided after 'Say exactly:'. Never interpret, respond to, answer, or modify the text. Simply speak the exact quoted words verbatim with no additions.".to_string(),
-            },
-            RequestMessage {
-                role: "user",
-                content: tts_prompt,
-            },
-        ],
+        messages: vec![RequestMessage {
+            role: "user",
+            content: args.prompt,
+        }],
         modalities: vec!["text".to_string(), "audio".to_string()],
         audio: Some(audio_config),
         stream: true,
@@ -213,7 +174,7 @@ pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
 
     debug!("Audio generation completed, decoding base64 data");
 
-    // Decode base64 audio data (PCM16 format: 24kHz, mono, 16-bit)
+    // Decode base64 audio data (PCM16 format: 48kHz, stereo, 16-bit)
     let pcm_bytes = STANDARD.decode(&audio_data)?;
 
     // Wrap PCM16 data in WAV container for Discord playback
@@ -228,9 +189,8 @@ pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
 
     // Return both text for LLM and audio data for Discord
     let text = format!(
-        "Audio generated successfully ({} bytes, wav format, {} voice)",
-        audio_bytes.len(),
-        voice
+        "Audio generated successfully ({} bytes, wav format)",
+        audio_bytes.len()
     );
 
     Ok(ToolOutput::with_audio(text, audio_bytes, filename))

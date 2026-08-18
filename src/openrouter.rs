@@ -5,6 +5,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    config::TEXT_MODEL,
     error::{BotError, Result},
     types::MessageRole,
 };
@@ -15,9 +16,6 @@ const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions"
 // Roughly 1 token ≈ 4 characters, so 2000 chars ≈ 500 tokens
 // Using 512 tokens to be safe
 const MAX_TOKENS: u32 = 512;
-
-/// Model for chat completions.
-const COMPLETION_MODEL: &str = "~anthropic/claude-haiku-latest";
 
 /// The system prompt for the assistant.
 const SYSTEM_PROMPT: &str = "You are a helpful assistant.";
@@ -195,7 +193,7 @@ impl OpenRouterClient {
         }
 
         let request = OpenRouterRequest {
-            model: COMPLETION_MODEL.to_string(),
+            model: TEXT_MODEL.to_string(),
             messages,
             max_tokens: MAX_TOKENS,
             tools,

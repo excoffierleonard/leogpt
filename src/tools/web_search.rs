@@ -4,12 +4,12 @@ use log::debug;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{BotError, Result};
+use crate::{
+    config::TEXT_MODEL,
+    error::{BotError, Result},
+};
 
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
-
-/// Model for web search requests.
-const WEB_SEARCH_MODEL: &str = "~anthropic/claude-haiku-latest";
 
 /// Arguments for the `web_search` tool
 #[derive(Debug, Deserialize)]
@@ -59,7 +59,7 @@ pub async fn web_search(arguments: &str, api_key: &str) -> Result<String> {
 
     debug!("Performing web search for: {}", args.query);
 
-    let online_model = format!("{WEB_SEARCH_MODEL}:online");
+    let online_model = format!("{TEXT_MODEL}:online");
 
     let request = WebSearchRequest {
         model: online_model,
