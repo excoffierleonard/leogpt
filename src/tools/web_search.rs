@@ -1,13 +1,14 @@
 //! Web search tool implementation using `OpenRouter`'s online search.
 
 use log::debug;
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     config::TEXT_MODEL,
-    error::{BotError, Result},
+    error::{BotError, Result, ensure_success},
 };
+
+use super::executor::ToolContext;
 
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -54,7 +55,7 @@ struct ResponseMessage {
 ///
 /// Makes a request to `OpenRouter` with the `:online` suffix appended to the model,
 /// which enables web search for that request.
-pub async fn web_search(arguments: &str, api_key: &str) -> Result<String> {
+pub async fn web_search(arguments: &str, tool_ctx: &ToolContext<'_>) -> Result<String> {
     let args: WebSearchArgs = serde_json::from_str(arguments)?;
 
     debug!("Performing web search for: {}", args.query);
@@ -70,22 +71,16 @@ pub async fn web_search(arguments: &str, api_key: &str) -> Result<String> {
         max_tokens: 4096,
     };
 
-    let client = Client::new();
-    let response = client
+    let response = tool_ctx
+        .client
         .post(OPENROUTER_API_URL)
-        .bearer_auth(api_key)
+        .bearer_auth(tool_ctx.openrouter_api_key)
         .header("Content-Type", "application/json")
         .json(&request)
         .send()
         .await?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let message = response.text().await?;
-        return Err(BotError::OpenRouterApi { status, message });
-    }
-
-    let api_response: OpenRouterResponse = response.json().await?;
+    let api_response: OpenRouterResponse = ensure_success(response).await?.json().await?;
 
     let content = api_response
         .choices

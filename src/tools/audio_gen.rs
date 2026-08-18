@@ -11,12 +11,11 @@ use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use hound::{SampleFormat, WavSpec, WavWriter};
 use log::debug;
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     config::AUDIO_GEN_MODEL,
-    error::{BotError, Result},
+    error::{BotError, Result, ensure_success},
 };
 
 use super::executor::{ToolContext, ToolOutput};
@@ -54,10 +53,20 @@ struct AudioConfig {
     format: String,
 }
 
-/// Streaming chunk from `OpenRouter`
+/// Streaming chunk from `OpenRouter`. Mid-stream provider errors arrive as a
+/// chunk with an `error` field instead of `choices[].delta`.
 #[derive(Debug, Deserialize)]
 struct StreamChunk {
+    #[serde(default)]
     choices: Vec<StreamChoice>,
+    #[serde(default)]
+    error: Option<StreamErrorPayload>,
+}
+
+/// Error payload embedded in a mid-stream SSE error chunk.
+#[derive(Debug, Deserialize)]
+struct StreamErrorPayload {
+    message: String,
 }
 
 /// Choice in a streaming chunk
@@ -132,20 +141,15 @@ pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
         stream: true,
     };
 
-    let client = Client::new();
-    let response = client
+    let response = tool_ctx
+        .client
         .post(OPENROUTER_API_URL)
         .bearer_auth(tool_ctx.openrouter_api_key)
         .header("Content-Type", "application/json")
         .json(&request)
         .send()
         .await?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let message = response.text().await?;
-        return Err(BotError::OpenRouterApi { status, message });
-    }
+    let response = ensure_success(response).await?;
 
     // Process streaming response using eventsource-stream for proper SSE parsing
     let mut stream = response.bytes_stream().eventsource();
@@ -158,8 +162,18 @@ pub async fn generate_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
             break;
         }
 
-        if let Ok(parsed) = serde_json::from_str::<StreamChunk>(&event.data)
-            && let Some(choice) = parsed.choices.first()
+        let Ok(parsed) = serde_json::from_str::<StreamChunk>(&event.data) else {
+            continue;
+        };
+
+        if let Some(err) = parsed.error {
+            return Err(BotError::OpenRouterResponse(format!(
+                "Audio generation failed mid-stream: {}",
+                err.message
+            )));
+        }
+
+        if let Some(choice) = parsed.choices.first()
             && let Some(delta) = &choice.delta
             && let Some(audio) = &delta.audio
             && let Some(audio_chunk) = &audio.data

@@ -10,7 +10,7 @@ use strum::{Display, EnumString, VariantNames};
 
 use crate::{
     config::VIDEO_GEN_MODEL,
-    error::{BotError, Result},
+    error::{BotError, Result, ensure_success},
 };
 
 use super::executor::{ToolContext, ToolOutput};
@@ -162,13 +162,7 @@ async fn submit_job(
         .send()
         .await?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let message = response.text().await?;
-        return Err(BotError::OpenRouterApi { status, message });
-    }
-
-    Ok(response.json().await?)
+    Ok(ensure_success(response).await?.json().await?)
 }
 
 /// Poll until the job completes, fails, or exceeds `MAX_POLL_DURATION`.
@@ -199,20 +193,14 @@ async fn poll_until_complete(
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let message = response.text().await?;
-            return Err(BotError::OpenRouterApi { status, message });
-        }
-
-        let poll: VideoPollResponse = response.json().await?;
+        let poll: VideoPollResponse = ensure_success(response).await?.json().await?;
         debug!("Video job status: {}", poll.status);
 
         match poll.status.as_str() {
             "completed" => return Ok(()),
-            "failed" => {
+            "failed" | "cancelled" | "expired" => {
                 let message = poll.error.as_ref().map_or_else(
-                    || "Video generation failed with no error detail".to_string(),
+                    || format!("Video generation ended with status '{}'", poll.status),
                     extract_error_message,
                 );
                 return Err(BotError::VideoGenerationFailed(message));
@@ -242,11 +230,11 @@ pub async fn generate_video(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
         frame_images: build_frame_images(&tool_ctx.recent_images),
     };
 
-    let client = Client::new();
-    let submitted = submit_job(&client, &request, tool_ctx).await?;
+    let client = tool_ctx.client;
+    let submitted = submit_job(client, &request, tool_ctx).await?;
     debug!("Video job submitted, polling at {}", submitted.polling_url);
 
-    poll_until_complete(&client, &submitted.polling_url, tool_ctx).await?;
+    poll_until_complete(client, &submitted.polling_url, tool_ctx).await?;
 
     let content_url = format!("{OPENROUTER_VIDEOS_URL}/{}/content?index=0", submitted.id);
     let response = client
@@ -254,11 +242,7 @@ pub async fn generate_video(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
         .bearer_auth(tool_ctx.openrouter_api_key)
         .send()
         .await?;
-    if !response.status().is_success() {
-        let status = response.status();
-        let message = response.text().await?;
-        return Err(BotError::OpenRouterApi { status, message });
-    }
+    let response = ensure_success(response).await?;
     let extension = extension_from_content_type(&response);
     let video_bytes = response.bytes().await?.to_vec();
     let filename = format!("generated_{}.{}", Utc::now().timestamp(), extension);
