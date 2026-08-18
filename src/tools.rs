@@ -8,7 +8,10 @@ mod search;
 mod server_info;
 mod user_info;
 mod utils;
+mod video_gen;
 mod web_search;
 
 pub use definitions::get_tool_definitions;
-pub use executor::{AudioAttachment, ImageAttachment, ToolContext, ToolExecutor, ToolOutput};
+pub use executor::{
+    AudioAttachment, ImageAttachment, ToolContext, ToolExecutor, ToolOutput, VideoAttachment,
+};

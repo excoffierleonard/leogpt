@@ -7,7 +7,7 @@ use poise::serenity_prelude::{
 
 use crate::{
     error::Result,
-    tools::{AudioAttachment, ImageAttachment},
+    tools::{AudioAttachment, ImageAttachment, VideoAttachment},
 };
 
 /// Result of the tool loop containing text and media attachments.
@@ -15,6 +15,7 @@ pub struct ToolLoopResult {
     pub text: Option<String>,
     pub images: Vec<ImageAttachment>,
     pub audio: Vec<AudioAttachment>,
+    pub video: Vec<VideoAttachment>,
 }
 
 /// Send the chatbot response to Discord.
@@ -23,7 +24,8 @@ pub async fn send_response(
     new_message: &SerenityMessage,
     result: ToolLoopResult,
 ) -> Result<()> {
-    let has_media = !result.images.is_empty() || !result.audio.is_empty();
+    let has_media =
+        !result.images.is_empty() || !result.audio.is_empty() || !result.video.is_empty();
     let mut attachments: Vec<CreateAttachment> = result
         .images
         .into_iter()
@@ -34,6 +36,12 @@ pub async fn send_response(
             .audio
             .into_iter()
             .map(|aud| CreateAttachment::bytes(aud.data, aud.filename)),
+    );
+    attachments.extend(
+        result
+            .video
+            .into_iter()
+            .map(|vid| CreateAttachment::bytes(vid.data, vid.filename)),
     );
 
     match (result.text, has_media) {
