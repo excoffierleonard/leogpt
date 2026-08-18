@@ -50,6 +50,12 @@ pub enum BotError {
     #[error("Tool loop limit exceeded")]
     ToolLoopLimit,
 
+    #[error("Video generation timed out")]
+    VideoGenerationTimeout,
+
+    #[error("Video generation failed: {0}")]
+    VideoGenerationFailed(String),
+
     #[error("Not in a server (DM context)")]
     NotInServer,
 
@@ -164,6 +170,12 @@ impl BotError {
             }
             BotError::ToolLoopLimit => {
                 "Sorry, I got stuck in a loop. Please try rephrasing your request.".to_string()
+            }
+            BotError::VideoGenerationTimeout => {
+                "Sorry, video generation is taking longer than expected. Please try again later or with a simpler prompt.".to_string()
+            }
+            BotError::VideoGenerationFailed(_) => {
+                "Sorry, video generation failed. Please try again with a different prompt.".to_string()
             }
             BotError::Base64Decode(_) | BotError::DataUrl(_) | BotError::DataUrlBase64(_) => {
                 "Sorry, I encountered an error processing image data. Please try again.".to_string()

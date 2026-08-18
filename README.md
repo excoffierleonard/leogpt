@@ -11,7 +11,7 @@ LeoGPT is a Discord bot for fast, context-aware chat with media support, tool-dr
 - Processes images, videos, audio, and PDFs
 - Auto-responses triggered by user/message match rules
 - Built-in tools for Discord lookups and web search
-- Image and audio generation via OpenRouter
+- Image, audio, and video generation via OpenRouter
 - Voice channel music playback with fuzzy song search
 
 ## Setup

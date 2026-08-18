@@ -39,6 +39,7 @@ pub async fn run_tool_loop(
     let tools = Some(get_tool_definitions());
     let mut generated_images = Vec::new();
     let mut generated_audio = Vec::new();
+    let mut generated_video = Vec::new();
 
     for _ in 0..MAX_TOOL_ITERATIONS {
         let _ = tool_ctx
@@ -59,6 +60,7 @@ pub async fn run_tool_loop(
                     text: Some(text),
                     images: generated_images,
                     audio: generated_audio,
+                    video: generated_video,
                 });
             }
             ChatResult::ToolCalls {
@@ -69,19 +71,20 @@ pub async fn run_tool_loop(
                 conversation_history.push(assistant_message);
 
                 for tool_call in tool_calls {
-                    let (result_text, maybe_image, maybe_audio) = match ToolExecutor::execute(
-                        &tool_call.function.name,
-                        &tool_call.function.arguments,
-                        tool_ctx,
-                    )
-                    .await
-                    {
-                        Ok(output) => (output.text, output.image, output.audio),
-                        Err(e) => {
-                            warn!("Tool execution failed: {e}");
-                            (format!("Error: {e}"), None, None)
-                        }
-                    };
+                    let (result_text, maybe_image, maybe_audio, maybe_video) =
+                        match ToolExecutor::execute(
+                            &tool_call.function.name,
+                            &tool_call.function.arguments,
+                            tool_ctx,
+                        )
+                        .await
+                        {
+                            Ok(output) => (output.text, output.image, output.audio, output.video),
+                            Err(e) => {
+                                warn!("Tool execution failed: {e}");
+                                (format!("Error: {e}"), None, None, None)
+                            }
+                        };
 
                     if let Some(image) = maybe_image {
                         generated_images.push(image);
@@ -89,6 +92,7 @@ pub async fn run_tool_loop(
                             text: None,
                             images: generated_images,
                             audio: generated_audio,
+                            video: generated_video,
                         });
                     }
                     if let Some(audio) = maybe_audio {
@@ -97,6 +101,16 @@ pub async fn run_tool_loop(
                             text: None,
                             images: generated_images,
                             audio: generated_audio,
+                            video: generated_video,
+                        });
+                    }
+                    if let Some(video) = maybe_video {
+                        generated_video.push(video);
+                        return Ok(ToolLoopResult {
+                            text: None,
+                            images: generated_images,
+                            audio: generated_audio,
+                            video: generated_video,
                         });
                     }
 

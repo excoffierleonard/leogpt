@@ -108,6 +108,24 @@ fn generate_audio_tool() -> Tool {
     )
 }
 
+fn generate_video_tool() -> Tool {
+    tool(
+        "generate_video",
+        "Generate a short AI video from a text description. If a recent image is present \
+         in the conversation, it is used as the starting frame to animate (image-to-video). \
+         Video generation takes one to several minutes to complete.",
+        json!({
+            "type": "object",
+            "properties": {
+                "prompt": { "type": "string", "description": "Description of the video to generate, or motion/action instructions if animating a recent image" },
+                "aspect_ratio": { "type": "string", "description": "Aspect ratio (16:9 or 9:16). Default: 16:9" },
+                "duration": { "type": "integer", "description": "Video length in seconds (4-8). Default: model default" }
+            },
+            "required": ["prompt"]
+        }),
+    )
+}
+
 /// Returns the tool definitions for the `OpenRouter` API.
 #[must_use]
 pub fn get_tool_definitions() -> Vec<Tool> {
@@ -118,5 +136,6 @@ pub fn get_tool_definitions() -> Vec<Tool> {
         web_search_tool(),
         generate_image_tool(),
         generate_audio_tool(),
+        generate_video_tool(),
     ]
 }

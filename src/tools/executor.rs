@@ -7,7 +7,8 @@ use crate::error::{BotError, Result};
 
 use super::{
     audio_gen::generate_audio, image_gen::generate_image, search::search_channel_history,
-    server_info::get_server_info, user_info::get_user_info, web_search::web_search,
+    server_info::get_server_info, user_info::get_user_info, video_gen::generate_video,
+    web_search::web_search,
 };
 
 /// Context needed to execute tools
@@ -36,6 +37,14 @@ pub struct AudioAttachment {
     pub filename: String,
 }
 
+/// Video attachment data to be sent to Discord
+pub struct VideoAttachment {
+    /// Raw video bytes
+    pub data: Vec<u8>,
+    /// Filename for the attachment
+    pub filename: String,
+}
+
 /// Output from a tool execution
 pub struct ToolOutput {
     /// Text result for the LLM conversation
@@ -44,6 +53,8 @@ pub struct ToolOutput {
     pub image: Option<ImageAttachment>,
     /// Optional audio to send as Discord attachment
     pub audio: Option<AudioAttachment>,
+    /// Optional video to send as Discord attachment
+    pub video: Option<VideoAttachment>,
 }
 
 impl ToolOutput {
@@ -54,6 +65,7 @@ impl ToolOutput {
             text,
             image: None,
             audio: None,
+            video: None,
         }
     }
 
@@ -64,6 +76,7 @@ impl ToolOutput {
             text,
             image: Some(ImageAttachment { data, filename }),
             audio: None,
+            video: None,
         }
     }
 
@@ -74,6 +87,18 @@ impl ToolOutput {
             text,
             image: None,
             audio: Some(AudioAttachment { data, filename }),
+            video: None,
+        }
+    }
+
+    /// Create an output with both text and video
+    #[must_use]
+    pub fn with_video(text: String, data: Vec<u8>, filename: String) -> Self {
+        Self {
+            text,
+            image: None,
+            audio: None,
+            video: Some(VideoAttachment { data, filename }),
         }
     }
 }
@@ -109,6 +134,7 @@ impl ToolExecutor {
                 .map(ToolOutput::text),
             "generate_image" => generate_image(arguments, tool_ctx).await,
             "generate_audio" => generate_audio(arguments, tool_ctx).await,
+            "generate_video" => generate_video(arguments, tool_ctx).await,
             _ => {
                 warn!("Unknown tool requested: {name}");
                 Err(BotError::ToolExecution(format!("Unknown tool: {name}")))
