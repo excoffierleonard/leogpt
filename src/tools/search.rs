@@ -7,7 +7,10 @@ use poise::serenity_prelude::{GetMessages, Message as DiscordMessage};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{BotError, Result};
+use crate::{
+    config::EMBEDDING_MODEL,
+    error::{BotError, Result},
+};
 
 use super::{executor::ToolContext, utils::matches_username};
 
@@ -16,9 +19,6 @@ const MAX_MESSAGES: u8 = 100;
 
 /// `OpenRouter` embeddings API URL
 const EMBEDDINGS_URL: &str = "https://openrouter.ai/api/v1/embeddings";
-
-/// Embedding model to use for semantic search
-const EMBEDDING_MODEL: &str = "google/gemini-embedding-2";
 
 /// Arguments for the `search_channel_history` tool
 #[derive(Debug, Deserialize)]

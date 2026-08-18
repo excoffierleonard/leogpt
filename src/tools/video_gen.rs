@@ -8,15 +8,15 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString, VariantNames};
 
-use crate::error::{BotError, Result};
+use crate::{
+    config::VIDEO_GEN_MODEL,
+    error::{BotError, Result},
+};
 
 use super::executor::{ToolContext, ToolOutput};
 
 /// `OpenRouter` video generation submit endpoint
 const OPENROUTER_VIDEOS_URL: &str = "https://openrouter.ai/api/v1/videos";
-
-/// Model for video generation
-const VIDEO_GEN_MODEL: &str = "google/veo-3.1-lite";
 
 /// Interval between poll attempts. Also drives the Discord typing-indicator
 /// keepalive tick, so this must stay under Discord's ~10s expiry.

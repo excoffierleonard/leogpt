@@ -7,15 +7,15 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString, VariantNames};
 
-use crate::error::{BotError, Result};
+use crate::{
+    config::IMAGE_GEN_MODEL,
+    error::{BotError, Result},
+};
 
 use super::executor::{ToolContext, ToolOutput};
 
 /// `OpenRouter` chat completions API URL
 const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
-
-/// Model for image generation
-const IMAGE_GEN_MODEL: &str = "google/gemini-3.1-flash-lite-image";
 
 #[derive(Debug, Clone, Copy, EnumString, VariantNames, Display)]
 #[strum(ascii_case_insensitive)]
