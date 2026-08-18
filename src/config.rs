@@ -10,9 +10,6 @@ use crate::error::{BotError, Result};
 /// Model for chat completions and text-based tool calls (e.g. web search).
 pub const TEXT_MODEL: &str = "google/gemini-3.7-flash";
 
-/// Model for embeddings (semantic channel search).
-pub const EMBEDDING_MODEL: &str = "google/gemini-embedding-2";
-
 /// Model for image generation.
 pub const IMAGE_GEN_MODEL: &str = "google/gemini-3.1-flash-lite-image";
 

@@ -18,13 +18,12 @@ fn tool(name: &str, description: &str, parameters: serde_json::Value) -> Tool {
 fn search_channel_history_tool() -> Tool {
     tool(
         "search_channel_history",
-        "Search recent messages in the current Discord channel using semantic search. \
-         Understands meaning, not just keywords - 'food discussion' finds messages about pizza, dinner, etc. \
-         Searches up to 100 recent messages.",
+        "Get recent messages from the current Discord channel, optionally filtered by author \
+         and/or a keyword. Searches up to the 100 most recent messages in the channel.",
         json!({
             "type": "object",
             "properties": {
-                "query": { "type": "string", "description": "What to search for (semantic search - understands meaning)" },
+                "query": { "type": "string", "description": "Keyword to filter messages by (case-insensitive substring match)" },
                 "username": { "type": "string", "description": "Filter messages by author name (fuzzy match)" },
                 "limit": { "type": "integer", "description": "Maximum number of results to return (default: 20, max: 100)" }
             },
