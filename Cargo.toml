@@ -20,8 +20,15 @@ mime = "0.3.17"
 mime_guess = "2.0.5"
 poise = "0.6.2"
 rand = "0.10.2"
-reqwest = { version = "0.12.28", default-features = false, features = [
+reqwest = { version = "0.13.4", default-features = false, features = [
     "json",
+    "rustls",
+    "stream",
+] }
+# songbird 0.6.0 is pinned to reqwest 0.12; kept alongside our 0.13 client
+# solely to build the `reqwest::Client` that `songbird::input::HttpRequest`
+# requires (see src/music/playback.rs).
+reqwest_legacy = { package = "reqwest", version = "0.12", default-features = false, features = [
     "rustls-tls",
     "stream",
 ] }
