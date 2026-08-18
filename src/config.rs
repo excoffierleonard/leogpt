@@ -25,6 +25,9 @@ pub const SPEECH_GEN_MODEL: &str = "google/gemini-3.1-flash-tts-preview";
 /// Model for video generation.
 pub const VIDEO_GEN_MODEL: &str = "google/veo-3.1-lite";
 
+/// Model for speech-to-text transcription.
+pub const TRANSCRIBE_MODEL: &str = "google/chirp-3";
+
 /// Bot configuration loaded from environment variables.
 #[derive(Debug, Clone)]
 pub struct Config {

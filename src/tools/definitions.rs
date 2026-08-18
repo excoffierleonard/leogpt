@@ -143,6 +143,22 @@ fn generate_video_tool() -> Tool {
     )
 }
 
+fn transcribe_audio_tool() -> Tool {
+    tool(
+        "transcribe_audio",
+        "Transcribe spoken audio to text. Downloads the audio from a URL (e.g. a Discord \
+         voice message or audio attachment) and returns the transcribed text.",
+        json!({
+            "type": "object",
+            "properties": {
+                "url": { "type": "string", "description": "URL of the audio file to transcribe" },
+                "language": { "type": "string", "description": "ISO-639-1 language code (e.g. 'en'). Auto-detected if omitted" }
+            },
+            "required": ["url"]
+        }),
+    )
+}
+
 /// Returns the tool definitions for the `OpenRouter` API.
 #[must_use]
 pub fn get_tool_definitions() -> Vec<Tool> {
@@ -155,5 +171,6 @@ pub fn get_tool_definitions() -> Vec<Tool> {
         generate_audio_tool(),
         generate_speech_tool(),
         generate_video_tool(),
+        transcribe_audio_tool(),
     ]
 }
