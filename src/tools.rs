@@ -7,6 +7,7 @@ mod image_gen;
 mod search;
 mod server_info;
 mod speech_gen;
+mod transcribe;
 mod user_info;
 mod utils;
 mod video_gen;

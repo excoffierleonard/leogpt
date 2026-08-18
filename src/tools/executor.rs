@@ -7,8 +7,8 @@ use crate::error::{BotError, Result};
 
 use super::{
     audio_gen::generate_audio, image_gen::generate_image, search::search_channel_history,
-    server_info::get_server_info, speech_gen::generate_speech, user_info::get_user_info,
-    video_gen::generate_video, web_search::web_search,
+    server_info::get_server_info, speech_gen::generate_speech, transcribe::transcribe_audio,
+    user_info::get_user_info, video_gen::generate_video, web_search::web_search,
 };
 
 /// Context needed to execute tools
@@ -136,6 +136,7 @@ impl ToolExecutor {
             "generate_audio" => generate_audio(arguments, tool_ctx).await,
             "generate_speech" => generate_speech(arguments, tool_ctx).await,
             "generate_video" => generate_video(arguments, tool_ctx).await,
+            "transcribe_audio" => transcribe_audio(arguments, tool_ctx).await,
             _ => {
                 warn!("Unknown tool requested: {name}");
                 Err(BotError::ToolExecution(format!("Unknown tool: {name}")))
