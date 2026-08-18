@@ -227,3 +227,18 @@ impl BotError {
 }
 
 pub type Result<T> = std::result::Result<T, BotError>;
+
+/// Ensure an HTTP response was successful, converting a non-2xx response into
+/// `BotError::OpenRouterApi` with the response body as the error message.
+///
+/// # Errors
+///
+/// Returns `BotError::OpenRouterApi` if the response status is not successful.
+pub async fn ensure_success(response: reqwest::Response) -> Result<reqwest::Response> {
+    if response.status().is_success() {
+        return Ok(response);
+    }
+    let status = response.status();
+    let message = response.text().await?;
+    Err(BotError::OpenRouterApi { status, message })
+}

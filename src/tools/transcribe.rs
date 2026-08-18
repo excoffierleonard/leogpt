@@ -2,12 +2,11 @@
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use log::debug;
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     config::TRANSCRIBE_MODEL,
-    error::{BotError, Result},
+    error::{BotError, Result, ensure_success},
 };
 
 use super::executor::{ToolContext, ToolOutput};
@@ -87,13 +86,7 @@ pub async fn transcribe_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Re
 
     debug!("Transcribing audio from URL: {}", args.url);
 
-    let client = Client::new();
-    let audio_response = client.get(&args.url).send().await?;
-    if !audio_response.status().is_success() {
-        let status = audio_response.status();
-        let message = audio_response.text().await?;
-        return Err(BotError::OpenRouterApi { status, message });
-    }
+    let audio_response = ensure_success(tool_ctx.client.get(&args.url).send().await?).await?;
     let format = guess_audio_format(&audio_response, &args.url);
     let audio_bytes = audio_response.bytes().await?;
     if audio_bytes.is_empty() {
@@ -109,7 +102,8 @@ pub async fn transcribe_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Re
         language: args.language,
     };
 
-    let response = client
+    let response = tool_ctx
+        .client
         .post(OPENROUTER_TRANSCRIPTIONS_URL)
         .bearer_auth(tool_ctx.openrouter_api_key)
         .header("Content-Type", "application/json")
@@ -117,13 +111,7 @@ pub async fn transcribe_audio(arguments: &str, tool_ctx: &ToolContext<'_>) -> Re
         .send()
         .await?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let message = response.text().await?;
-        return Err(BotError::OpenRouterApi { status, message });
-    }
-
-    let transcription: TranscribeResponse = response.json().await?;
+    let transcription: TranscribeResponse = ensure_success(response).await?.json().await?;
     if transcription.text.trim().is_empty() {
         return Err(BotError::OpenRouterResponse(
             "No transcription text returned".into(),

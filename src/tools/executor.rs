@@ -2,6 +2,7 @@
 
 use log::{debug, warn};
 use poise::serenity_prelude::{ChannelId, Context, GuildId};
+use reqwest::Client;
 
 use crate::error::{BotError, Result};
 
@@ -17,6 +18,8 @@ pub struct ToolContext<'a> {
     pub channel_id: ChannelId,
     pub guild_id: Option<GuildId>,
     pub openrouter_api_key: &'a str,
+    /// Shared HTTP client, reused across tool calls instead of creating a new one each time.
+    pub client: &'a Client,
     /// Image URLs from the conversation history (most recent first)
     pub recent_images: Vec<String>,
 }
@@ -129,9 +132,7 @@ impl ToolExecutor {
             "get_server_info" => get_server_info(arguments, tool_ctx)
                 .await
                 .map(ToolOutput::text),
-            "web_search" => web_search(arguments, tool_ctx.openrouter_api_key)
-                .await
-                .map(ToolOutput::text),
+            "web_search" => web_search(arguments, tool_ctx).await.map(ToolOutput::text),
             "generate_image" => generate_image(arguments, tool_ctx).await,
             "generate_audio" => generate_audio(arguments, tool_ctx).await,
             "generate_speech" => generate_speech(arguments, tool_ctx).await,

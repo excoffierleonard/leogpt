@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     config::TEXT_MODEL,
-    error::{BotError, Result},
+    error::{BotError, Result, ensure_success},
     types::MessageRole,
 };
 
@@ -156,6 +156,13 @@ impl OpenRouterClient {
         }
     }
 
+    /// Shared HTTP client, reused by tool implementations that call other
+    /// `OpenRouter` endpoints outside chat completions.
+    #[must_use]
+    pub fn http_client(&self) -> &Client {
+        &self.client
+    }
+
     /// Send a chat request with conversation history.
     ///
     /// # Errors
@@ -208,13 +215,7 @@ impl OpenRouterClient {
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let message = response.text().await?;
-            return Err(BotError::OpenRouterApi { status, message });
-        }
-
-        let api_response: OpenRouterResponse = response.json().await?;
+        let api_response: OpenRouterResponse = ensure_success(response).await?.json().await?;
 
         let message = api_response
             .choices

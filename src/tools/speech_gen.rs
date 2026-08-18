@@ -2,13 +2,12 @@
 
 use chrono::Utc;
 use log::debug;
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString, VariantNames};
 
 use crate::{
     config::SPEECH_GEN_MODEL,
-    error::{BotError, Result},
+    error::{BotError, Result, ensure_success},
 };
 
 use super::executor::{ToolContext, ToolOutput};
@@ -99,7 +98,8 @@ pub async fn generate_speech(arguments: &str, tool_ctx: &ToolContext<'_>) -> Res
         response_format: "mp3",
     };
 
-    let response = Client::new()
+    let response = tool_ctx
+        .client
         .post(OPENROUTER_SPEECH_URL)
         .bearer_auth(tool_ctx.openrouter_api_key)
         .header("Content-Type", "application/json")
@@ -107,13 +107,7 @@ pub async fn generate_speech(arguments: &str, tool_ctx: &ToolContext<'_>) -> Res
         .send()
         .await?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let message = response.text().await?;
-        return Err(BotError::OpenRouterApi { status, message });
-    }
-
-    let audio_bytes = response.bytes().await?.to_vec();
+    let audio_bytes = ensure_success(response).await?.bytes().await?.to_vec();
     if audio_bytes.is_empty() {
         return Err(BotError::OpenRouterResponse("No audio generated".into()));
     }

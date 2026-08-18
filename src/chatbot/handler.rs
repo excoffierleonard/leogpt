@@ -53,6 +53,7 @@ pub async fn handle_bot_mention(
         channel_id: new_message.channel_id,
         guild_id: new_message.guild_id,
         openrouter_api_key: data.openrouter_api_key(),
+        client: data.openrouter_client().http_client(),
         recent_images,
     };
 

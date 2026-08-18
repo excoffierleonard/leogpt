@@ -3,13 +3,12 @@
 use chrono::Utc;
 use data_url::DataUrl;
 use log::debug;
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString, VariantNames};
 
 use crate::{
     config::IMAGE_GEN_MODEL,
-    error::{BotError, Result},
+    error::{BotError, Result, ensure_success},
 };
 
 use super::executor::{ToolContext, ToolOutput};
@@ -256,7 +255,8 @@ pub async fn generate_image(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
         image_config: build_image_config(&args)?,
     };
 
-    let response = Client::new()
+    let response = tool_ctx
+        .client
         .post(OPENROUTER_API_URL)
         .bearer_auth(tool_ctx.openrouter_api_key)
         .header("Content-Type", "application/json")
@@ -264,13 +264,7 @@ pub async fn generate_image(arguments: &str, tool_ctx: &ToolContext<'_>) -> Resu
         .send()
         .await?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let message = response.text().await?;
-        return Err(BotError::OpenRouterApi { status, message });
-    }
-
-    let api_response: OpenRouterResponse = response.json().await?;
+    let api_response: OpenRouterResponse = ensure_success(response).await?.json().await?;
     let data_url = extract_image_from_response(&api_response)?;
 
     debug!("Image generation completed, decoding base64 data");
